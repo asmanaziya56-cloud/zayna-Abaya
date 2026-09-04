@@ -1,0 +1,289 @@
+{
+  "info": {
+    "_postman_id": "zayna-abaya-api-collection",
+    "name": "Zayna Abaya API",
+    "description": "Production REST API for Zayna Abaya E-Commerce Store",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const tokenExpiry = pm.environment.get('tokenExpiry');",
+          "const now = Date.now();",
+          "if (tokenExpiry && now >= parseInt(tokenExpiry)) {",
+          "  pm.sendRequest({",
+          "    url: pm.environment.get('baseUrl') + '/api/v1/auth/refresh',",
+          "    method: 'POST',",
+          "    header: { 'Content-Type': 'application/json' }",
+          "  }, function (err, res) {",
+          "    if (!err && res.code === 200) {",
+          "      const token = res.json().data.accessToken;",
+          "      pm.environment.set('accessToken', token);",
+          "      pm.environment.set('tokenExpiry', Date.now() + 14 * 60 * 1000);",
+          "    }",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Probes",
+      "item": [
+        {
+          "name": "Liveness Check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status ok in body', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Readiness Check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/ready"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Zayna Customer\",\n  \"email\": \"customer@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Success true', () => pm.expect(pm.response.json().success).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.accessToken) {",
+                  "  pm.environment.set('accessToken', json.data.accessToken);",
+                  "  pm.environment.set('tokenExpiry', Date.now() + 14 * 60 * 1000);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/refresh"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/products?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.success).to.be.true;",
+                  "if (json.data && json.data.length > 0) {",
+                  "  pm.environment.set('productId', json.data[0]._id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Product By Slug",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/products/classic-black-abaya"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/cart",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}", "disabled": true },
+              { "key": "x-session-id", "value": "guest-session-12345" }
+            ]
+          }
+        },
+        {
+          "name": "Add Item to Cart",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/cart/items",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-session-id", "value": "guest-session-12345" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 1\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders & Payments",
+      "item": [
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/orders",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [{ \"productId\": \"{{productId}}\", \"quantity\": 1 }],\n  \"shippingAddress\": {\n    \"fullName\": \"Zayna Client\",\n    \"phone\": \"+919876543210\",\n    \"street\": \"12 Palm Avenue\",\n    \"city\": \"Bangalore\",\n    \"state\": \"Karnataka\",\n    \"postalCode\": \"560001\",\n    \"country\": \"India\"\n  },\n  \"guestEmail\": \"customer@example.com\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data._id) {",
+                  "  pm.environment.set('orderId', json.data._id);",
+                  "  pm.environment.set('orderNumber', json.data.orderNumber);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Razorpay Order",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/payments/razorpay/order",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.razorpayOrderId) {",
+                  "  pm.environment.set('razorpayOrderId', json.data.razorpayOrderId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Track Order",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/orders/track/{{orderNumber}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Storefront Content & Settings",
+      "item": [
+        {
+          "name": "Get Public Settings",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/settings/public"
+          }
+        },
+        {
+          "name": "Get Homepage Content",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/content/homepage"
+          }
+        }
+      ]
+    }
+  ]
+}

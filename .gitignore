@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Next.js build output
+.next/
+**/build/
+**/dist/
+
+# Environment & secrets — NEVER commit (only .env.example is allowed)
+.env
+.env.*
+!.env.example
+
+# Uploaded files
+uploads/
+**/uploads/
+
+# Private keys and certificates
+*.pem
+*.key
+id_rsa
+id_ed25519
+*.p12
+*.pfx
+
+# Logs & coverage
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+coverage/
+.nyc_output/
+
+# OS / Editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
