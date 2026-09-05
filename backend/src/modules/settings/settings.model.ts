@@ -394,7 +394,7 @@ const SiteSettingsSchema = new Schema<ISiteSettings>(
       currencySymbol: { type: String, default: '₹' },
       flatShippingRate: { type: Number, default: 10000 }, // ₹100
       freeShippingThreshold: { type: Number, default: 299900 }, // ₹2999
-      taxRatePercent: { type: Number, default: 5 }, // 5% GST
+      taxRatePercent: { type: Number, default: 0 }, // Prices are all-inclusive (Taxes included)
       estimatedDeliveryDays: { type: Number, default: 5 }
     },
     features: {

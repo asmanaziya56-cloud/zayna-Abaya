@@ -476,8 +476,8 @@ export default function CheckoutPage() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Estimated 5% GST</span>
-                  <span>{formatINR(cart?.taxAmount || 0)}</span>
+                  <span>GST & Taxes</span>
+                  <span className="text-emerald-700 font-medium">Included</span>
                 </div>
                 <div className="flex justify-between text-base font-serif font-bold text-brand-noir pt-3 border-t border-brand-border">
                   <span>Total Payable</span>

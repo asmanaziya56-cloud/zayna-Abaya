@@ -8638,6 +8638,14 @@ export default function AdminDashboardPage() {
                   <span>Shipping</span>
                   <span>{(viewingOrder.pricing?.shippingAmount || 0) === 0 ? 'Free' : formatINR(viewingOrder.pricing?.shippingAmount || 0)}</span>
                 </div>
+                <div className="flex justify-between text-brand-noir/70">
+                  <span>GST / Taxes</span>
+                  <span className="text-emerald-700 font-medium">
+                    {(viewingOrder.pricing?.taxAmount || 0) > 0
+                      ? formatINR(viewingOrder.pricing.taxAmount)
+                      : 'Included'}
+                  </span>
+                </div>
                 <div className="flex justify-between font-bold text-brand-noir border-t border-brand-border pt-2 mt-1">
                   <span>Total</span>
                   <span>{formatINR(viewingOrder.pricing?.totalAmount || 0)}</span>
