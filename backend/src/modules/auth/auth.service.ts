@@ -83,7 +83,8 @@ export class AuthService {
   }
 
   async login(credentials: { email: string; password: string }, clientInfo?: { device?: string; ip?: string }) {
-    const user = await User.findOne({ email: credentials.email, isDeleted: { $ne: true } }).select(
+    const email = credentials.email?.toLowerCase().trim();
+    const user = await User.findOne({ email, isDeleted: { $ne: true } }).select(
       '+password +verificationToken'
     );
 

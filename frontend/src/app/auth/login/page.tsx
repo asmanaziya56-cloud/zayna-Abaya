@@ -25,8 +25,13 @@ export default function LoginPage() {
       await refreshUser();
       router.push('/account');
     } catch (err: any) {
-      setError(
+      const serverMsg =
         err.response?.data?.error?.message ||
+        (typeof err.response?.data?.error === 'string' ? err.response?.data?.error : null) ||
+        err.response?.data?.message;
+
+      setError(
+        serverMsg ||
         'Unable to sign in. Please verify your credentials or check if your account is locked.'
       );
     } finally {
@@ -108,15 +113,12 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="pt-4 border-t border-brand-border text-center space-y-2">
+        <div className="pt-4 border-t border-brand-border text-center">
           <p className="text-xs text-brand-noir/70">
             Do not have an account yet?{' '}
             <Link href="/auth/register" className="text-brand-mocha font-semibold hover:underline">
               Create Client Account
             </Link>
-          </p>
-          <p className="text-[11px] text-brand-noir/50">
-            Default Admin Login: admin@zaynaabaya.com (Password: Admin@Zayna2026)
           </p>
         </div>
       </div>

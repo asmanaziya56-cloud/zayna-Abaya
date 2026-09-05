@@ -2173,11 +2173,6 @@ export default function AdminDashboardPage() {
         <p className="text-xs text-brand-noir/70 leading-relaxed">
           You must be authenticated as an administrator or superadmin to view backoffice operations.
         </p>
-        <div className="p-4 bg-brand-sand/60 rounded-lg text-xs text-left space-y-1">
-          <p className="font-semibold text-brand-noir">Staff Test Credentials:</p>
-          <p>Email: <span className="font-mono text-brand-mocha">admin@zaynaabaya.com</span></p>
-          <p>Password: <span className="font-mono text-brand-mocha">Admin@Zayna2026</span></p>
-        </div>
         <Link
           href="/auth/login"
           className="inline-block px-6 py-2.5 bg-brand-mocha text-white text-xs font-semibold uppercase tracking-wider rounded"

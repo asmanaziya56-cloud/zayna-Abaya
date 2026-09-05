@@ -1,3 +1,12 @@
+import dns from 'dns';
+
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch {
+  // Ignore container permissions
+}
+process.env.VERCEL = '1';
+
 let appPromise: Promise<any> | null = null;
 
 async function getApp() {
