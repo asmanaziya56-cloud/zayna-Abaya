@@ -13,6 +13,25 @@ export class CartService {
       if (!cart) {
         cart = await Cart.create({ userId: new Types.ObjectId(userId), items: [], subtotal: 0 });
       }
+      // Merge guest session cart if guest items exist
+      if (sessionId) {
+        const guestCart = await Cart.findOne({ sessionId });
+        if (guestCart && guestCart.items && guestCart.items.length > 0) {
+          for (const gItem of guestCart.items) {
+            const existingIdx = cart.items.findIndex(
+              (i) => i.product.toString() === gItem.product.toString() && i.variantId === gItem.variantId
+            );
+            if (existingIdx > -1) {
+              cart.items[existingIdx]!.quantity += gItem.quantity;
+              cart.items[existingIdx]!.total = cart.items[existingIdx]!.quantity * cart.items[existingIdx]!.price;
+            } else {
+              cart.items.push(gItem);
+            }
+          }
+          await guestCart.deleteOne();
+          await cart.save();
+        }
+      }
     } else if (sessionId) {
       cart = await Cart.findOne({ sessionId });
       if (!cart) {

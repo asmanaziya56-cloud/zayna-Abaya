@@ -9,8 +9,38 @@ interface CategoryBannersProps {
   sectionConfig?: ICategoriesSectionSettings;
 }
 
+export const defaultCategories: ICategory[] = [
+  {
+    _id: 'cat_everyday',
+    name: 'Everyday Essentials',
+    slug: 'everyday-essentials',
+    image: '/images/categories/everyday-essentials.jpg',
+    description: 'Lightweight Korean Nidha silhouettes for effortless daily elegance.',
+    sortOrder: 1,
+    active: true
+  },
+  {
+    _id: 'cat_luxury',
+    name: 'Luxury Occasion',
+    slug: 'luxury-occasion',
+    image: '/images/categories/luxury-occasion.jpg',
+    description: 'Hand-embroidered zardozi and crystalline beadwork for celebratory evenings.',
+    sortOrder: 2,
+    active: true
+  },
+  {
+    _id: 'cat_eid',
+    name: 'Eid & Festive',
+    slug: 'eid-festive',
+    image: '/images/categories/eid-festive.jpg',
+    description: 'Exclusive celebratory edits featuring champagne gold threadwork and organza accents.',
+    sortOrder: 3,
+    active: true
+  }
+];
+
 export function CategoryBanners({ categories, sectionConfig }: CategoryBannersProps) {
-  if (!categories || categories.length === 0) return null;
+  const items = categories && categories.length > 0 ? categories : defaultCategories;
 
   const badge = sectionConfig?.badgeText || 'Curated Categories';
   const title = sectionConfig?.title || 'Designed for Every Occasion';
@@ -29,7 +59,7 @@ export function CategoryBanners({ categories, sectionConfig }: CategoryBannersPr
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {categories.map((cat, index) => (
+          {items.map((cat, index) => (
             <Link
               key={cat._id}
               href={`/shop?category=${cat.slug}`}
@@ -42,8 +72,8 @@ export function CategoryBanners({ categories, sectionConfig }: CategoryBannersPr
                   src={cat.image}
                   alt={cat.name}
                   fill
-                  unoptimized
-                  sizes="(max-width: 768px) 100vw, 33vw"
+                  priority={index < 2}
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
               )}

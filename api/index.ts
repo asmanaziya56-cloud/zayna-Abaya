@@ -1,12 +1,23 @@
-import app from '../backend/src/app.js';
-import { connectDB } from '../backend/src/config/db.js';
+let appPromise: Promise<any> | null = null;
+
+async function getApp() {
+  if (!appPromise) {
+    appPromise = (async () => {
+      const { connectDB } = await import('../backend/src/config/db.js');
+      await connectDB();
+      const appModule: any = await import('../backend/src/app.js');
+      return appModule.default || appModule;
+    })();
+  }
+  return appPromise;
+}
 
 export default async function handler(req: any, res: any) {
   try {
-    await connectDB();
-  } catch (err) {
-    // Log serverless connection errors gracefully without breaking execution
+    const app = await getApp();
+    return (app as any)(req, res);
+  } catch (err: any) {
     console.error('Serverless connection error:', err);
+    return res.status(500).json({ error: 'Serverless execution failed', details: err?.message || String(err) });
   }
-  return app(req, res);
 }

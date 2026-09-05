@@ -335,6 +335,9 @@ export default function AdminDashboardPage() {
   const [faqAnswer, setFaqAnswer] = useState('');
   const [faqCategory, setFaqCategory] = useState('General');
 
+  // Selected order details view modal
+  const [viewingOrder, setViewingOrder] = useState<IOrder | null>(null);
+
   // Selected order fulfillment update modal
   const [editingOrder, setEditingOrder] = useState<IOrder | null>(null);
   const [newStatus, setNewStatus] = useState('processing');
@@ -1990,7 +1993,10 @@ export default function AdminDashboardPage() {
                           <p className="text-[10px] text-brand-noir/60">{o.guestEmail || '—'}</p>
                         </td>
                         <td className="py-3.5 px-4">
-                          {o.items?.length || 0} item(s)
+                          <p className="font-semibold text-brand-noir">{o.items?.length || 0} item(s)</p>
+                          <p className="text-[10px] text-brand-mocha font-medium truncate max-w-[180px]" title={o.items?.map((it: any) => it.name || it.title || it.product?.name).filter(Boolean).join(', ')}>
+                            {o.items?.map((it: any) => it.name || it.title || it.product?.name).filter(Boolean).join(', ') || '—'}
+                          </p>
                         </td>
                         <td className="py-3.5 px-4 font-bold">
                           {formatINR(o.pricing?.totalAmount || 0)}
@@ -2008,17 +2014,25 @@ export default function AdminDashboardPage() {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={() => {
-                              setEditingOrder(o);
-                              setNewStatus(o.fulfillmentStatus || 'processing');
-                              setCourier(o.tracking?.courier || 'BlueDart Air Express');
-                              setTrackingNumber(o.tracking?.trackingNumber || '');
-                            }}
-                            className="text-brand-mocha font-semibold hover:underline"
-                          >
-                            Update Dispatch
-                          </button>
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              onClick={() => setViewingOrder(o)}
+                              className="text-brand-noir/60 font-semibold hover:text-brand-noir hover:underline flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> View
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingOrder(o);
+                                setNewStatus(o.fulfillmentStatus || 'processing');
+                                setCourier(o.tracking?.courier || 'BlueDart Air Express');
+                                setTrackingNumber(o.tracking?.trackingNumber || '');
+                              }}
+                              className="text-brand-mocha font-semibold hover:underline"
+                            >
+                              Update Dispatch
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -7138,6 +7152,163 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Order Details View Modal */}
+      {viewingOrder && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl border border-brand-border shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-brand-border sticky top-0 bg-white z-10">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-mocha">Order Details</p>
+                <h3 className="font-serif text-lg text-brand-noir">#{viewingOrder.orderNumber}</h3>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                  viewingOrder.fulfillmentStatus === 'delivered' ? 'bg-emerald-100 text-emerald-800' :
+                  viewingOrder.fulfillmentStatus === 'shipped' ? 'bg-blue-100 text-blue-800' :
+                  viewingOrder.fulfillmentStatus === 'cancelled' ? 'bg-red-100 text-red-800' :
+                  'bg-amber-100 text-amber-800'
+                }`}>
+                  {viewingOrder.fulfillmentStatus || 'Processing'}
+                </span>
+                <button onClick={() => setViewingOrder(null)} className="text-brand-noir/50 hover:text-brand-noir">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Customer & Shipping Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-brand-sand/30 rounded-lg p-4 space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-brand-mocha">Customer</p>
+                  <p className="font-semibold text-brand-noir">{viewingOrder.shippingAddress?.fullName || 'Guest'}</p>
+                  <p className="text-xs text-brand-noir/60">{viewingOrder.guestEmail || '—'}</p>
+                  {viewingOrder.shippingAddress?.phone && (
+                    <p className="text-xs text-brand-noir/60 flex items-center gap-1">
+                      <Phone className="w-3 h-3" /> {viewingOrder.shippingAddress.phone}
+                    </p>
+                  )}
+                </div>
+                <div className="bg-brand-sand/30 rounded-lg p-4 space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-brand-mocha">Shipping Address</p>
+                  <p className="text-xs text-brand-noir leading-relaxed">
+                    {viewingOrder.shippingAddress?.street}<br />
+                    {viewingOrder.shippingAddress?.apartment && <>{viewingOrder.shippingAddress.apartment}<br /></>}
+                    {viewingOrder.shippingAddress?.city}, {viewingOrder.shippingAddress?.state} {viewingOrder.shippingAddress?.postalCode}<br />
+                    {viewingOrder.shippingAddress?.country}
+                  </p>
+                </div>
+              </div>
+
+              {/* Items Ordered */}
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-mocha mb-3">Items Ordered</p>
+                <div className="border border-brand-border rounded-lg overflow-hidden divide-y divide-brand-border">
+                  {viewingOrder.items?.map((item: any, idx: number) => {
+                    const itemName = item.name || item.title || item.product?.name || 'Zayna Creation';
+                    const itemImage = item.image || item.product?.images?.[0] || (typeof item.product?.images?.[0] === 'string' ? item.product.images[0] : item.product?.images?.[0]?.url);
+                    const itemSku = item.sku || item.product?.sku || '';
+                    const itemPrice = item.price || (item.total && item.quantity ? Math.round(item.total / item.quantity) : 0);
+                    const itemTotal = item.total || (itemPrice * (item.quantity || 1));
+
+                    return (
+                      <div key={idx} className="flex items-center gap-4 p-4">
+                        {itemImage ? (
+                          <img src={itemImage} alt={itemName} className="w-14 h-14 object-cover rounded-lg border border-brand-border flex-shrink-0" />
+                        ) : (
+                          <div className="w-14 h-14 bg-brand-sand/60 rounded-lg border border-brand-border flex items-center justify-center text-brand-mocha font-serif text-xs font-bold flex-shrink-0">
+                            ZA
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-brand-noir text-sm">{itemName}</p>
+                          {itemSku && (
+                            <p className="text-[11px] font-mono text-brand-noir/50">SKU: {itemSku}</p>
+                          )}
+                          {(item.size || item.color) && (
+                            <p className="text-xs text-brand-noir/60 mt-0.5">
+                              {item.size && <span>Size: <strong>{item.size}</strong></span>}
+                              {item.size && item.color && ' · '}
+                              {item.color && <span>Color: <strong>{item.color}</strong></span>}
+                            </p>
+                          )}
+                          <p className="text-xs text-brand-noir/60 mt-0.5">Qty: <strong>{item.quantity}</strong></p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="font-bold text-brand-noir">{formatINR(itemTotal)}</p>
+                          <p className="text-[10px] text-brand-noir/50">{formatINR(itemPrice)} each</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Pricing Breakdown */}
+              <div className="bg-brand-sand/30 rounded-lg p-4 space-y-2 text-sm">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-brand-mocha mb-2">Pricing Breakdown</p>
+                <div className="flex justify-between text-brand-noir/70">
+                  <span>Subtotal</span>
+                  <span>{formatINR(viewingOrder.pricing?.subtotal || 0)}</span>
+                </div>
+                {(viewingOrder.pricing?.discountAmount || 0) > 0 && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Discount</span>
+                    <span>− {formatINR(viewingOrder.pricing.discountAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-brand-noir/70">
+                  <span>Shipping</span>
+                  <span>{(viewingOrder.pricing?.shippingAmount || 0) === 0 ? 'Free' : formatINR(viewingOrder.pricing?.shippingAmount || 0)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-brand-noir border-t border-brand-border pt-2 mt-1">
+                  <span>Total</span>
+                  <span>{formatINR(viewingOrder.pricing?.totalAmount || 0)}</span>
+                </div>
+                <div className="flex justify-between text-xs mt-1">
+                  <span className="text-brand-noir/60">Payment</span>
+                  <span className={`font-bold ${viewingOrder.paymentStatus === 'paid' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    {viewingOrder.paymentStatus?.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tracking Info */}
+              {viewingOrder.tracking?.trackingNumber && (
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 mb-1">Tracking Info</p>
+                  <p className="text-xs text-brand-noir"><strong>Courier:</strong> {viewingOrder.tracking.courier}</p>
+                  <p className="text-xs text-brand-noir"><strong>Tracking #:</strong> <span className="font-mono">{viewingOrder.tracking.trackingNumber}</span></p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setViewingOrder(null);
+                    setEditingOrder(viewingOrder);
+                    setNewStatus(viewingOrder.fulfillmentStatus || 'processing');
+                    setCourier(viewingOrder.tracking?.courier || 'BlueDart Air Express');
+                    setTrackingNumber(viewingOrder.tracking?.trackingNumber || '');
+                  }}
+                  className="flex-1 bg-brand-mocha text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-brand-mocha/90 transition-colors"
+                >
+                  Update Dispatch
+                </button>
+                <button
+                  onClick={() => setViewingOrder(null)}
+                  className="px-6 border border-brand-border text-brand-noir py-2.5 rounded-lg font-semibold text-sm hover:bg-brand-sand/40 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

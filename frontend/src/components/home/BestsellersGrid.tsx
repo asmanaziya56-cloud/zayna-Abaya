@@ -8,8 +8,51 @@ interface BestsellersGridProps {
   products: IProduct[];
 }
 
+const defaultBestsellers: IProduct[] = [
+  {
+    _id: '6a9bdde913550629becd5c71',
+    name: 'Embroidery Black Abaya',
+    slug: 'embroidery-black-abaya-0990',
+    price: 479900,
+    salePrice: 419900,
+    images: ['https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1200&auto=format&fit=crop'],
+    stock: 25,
+    flags: { isBestseller: true, isFeatured: true }
+  } as any,
+  {
+    _id: '6a9bdb3652b47be6b17f36ed',
+    name: 'Leaf Styled Abaya',
+    slug: 'leaf-styled-abaya-9828',
+    price: 399900,
+    salePrice: 367400,
+    images: ['https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=1200&auto=format&fit=crop'],
+    stock: 22,
+    flags: { isBestseller: true }
+  } as any,
+  {
+    _id: '6a9bdcd3400ebf19cb753fba',
+    name: 'Stunning Black Abaya',
+    slug: 'stunning-black-abaya-5309',
+    price: 399900,
+    salePrice: 350000,
+    images: ['https://images.unsplash.com/photo-1518049362265-d5b2a6467637?q=80&w=1200&auto=format&fit=crop'],
+    stock: 22,
+    flags: { isBestseller: true }
+  } as any,
+  {
+    _id: '6a9bdd4f52b47be6b17f370d',
+    name: 'Slip Dress',
+    slug: 'slip-dress-9712',
+    price: 99900,
+    salePrice: 89900,
+    images: ['https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=1200&auto=format&fit=crop'],
+    stock: 25,
+    flags: { isBestseller: true }
+  } as any
+];
+
 export function BestsellersGrid({ products }: BestsellersGridProps) {
-  if (!products || products.length === 0) return null;
+  const items = products && products.length > 0 ? products : defaultBestsellers;
 
   return (
     <section className="py-20 bg-brand-cream/50 border-t border-brand-border">
@@ -35,7 +78,7 @@ export function BestsellersGrid({ products }: BestsellersGridProps) {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {products.slice(0, 4).map((product) => (
+          {items.slice(0, 4).map((product) => (
             <ProductCard key={product._id} product={product} />
           ))}
         </div>

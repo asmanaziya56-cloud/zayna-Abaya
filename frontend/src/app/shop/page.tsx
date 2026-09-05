@@ -18,6 +18,7 @@ function ShopContent() {
   const [products, setProducts] = useState<IProduct[]>([]);
   const [categories, setCategories] = useState<ICategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   // Filter states
@@ -26,29 +27,39 @@ function ShopContent() {
 
   const availableSizes = ['52', '54', '56', '58', '60'];
 
-  useEffect(() => {
-    async function loadShopData() {
-      setLoading(true);
-      try {
-        const [catsRes, prodsRes] = await Promise.all([
-          productsApi.getCategories(),
-          productsApi.getProducts({
-            category: activeCategory || undefined,
-            sort: activeSort as any,
-            q: searchQuery || undefined
-          })
-        ]);
-        setCategories(catsRes);
-        setProducts(prodsRes.products);
-      } catch (err) {
-        console.error('Failed to load catalog', err);
-      } finally {
-        setLoading(false);
-      }
-    }
+  const loadShopData = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const results = await Promise.allSettled([
+        productsApi.getCategories(),
+        productsApi.getProducts({
+          category: activeCategory || undefined,
+          sort: activeSort as any,
+          q: searchQuery || undefined
+        })
+      ]);
 
-    loadShopData();
+      if (results[0].status === 'fulfilled') {
+        setCategories(results[0].value);
+      }
+
+      if (results[1].status === 'fulfilled') {
+        setProducts(results[1].value.products || []);
+      } else {
+        throw new Error('Unable to fetch products at this time');
+      }
+    } catch (err: any) {
+      console.error('Failed to load catalog', err);
+      setError(err?.message || 'We could not load our catalog. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
   }, [activeCategory, activeSort, searchQuery]);
+
+  useEffect(() => {
+    loadShopData();
+  }, [loadShopData]);
 
   // Client-side filtering for size and price slider
   const filteredProducts = useMemo(() => {
@@ -123,7 +134,11 @@ function ShopContent() {
               <span>Filters</span>
             </button>
             <span className="text-xs text-brand-noir/70">
-              Showing <span className="font-bold text-brand-noir">{filteredProducts.length}</span> creations
+              {loading ? (
+                <span className="text-brand-mocha font-medium animate-pulse">Loading luxury creations...</span>
+              ) : (
+                <>Showing <span className="font-bold text-brand-noir">{filteredProducts.length}</span> creations</>
+              )}
             </span>
           </div>
 
@@ -232,10 +247,27 @@ function ShopContent() {
           {/* Product Grid */}
           <main className="lg:col-span-3">
             {loading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
                 {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <div key={n} className="animate-pulse bg-white rounded-lg aspect-[3/4] border border-brand-border" />
+                  <div key={n} className="bg-white rounded-lg p-3 border border-brand-border space-y-3 animate-pulse">
+                    <div className="aspect-[3/4] bg-brand-sand rounded-md w-full" />
+                    <div className="h-3.5 bg-brand-sand rounded w-3/4" />
+                    <div className="h-3 bg-brand-sand/60 rounded w-1/2" />
+                  </div>
                 ))}
+              </div>
+            ) : error ? (
+              <div className="bg-white rounded-lg border border-brand-border p-12 text-center space-y-4 shadow-sm">
+                <p className="font-serif text-xl text-brand-noir">Unable to Load Catalog</p>
+                <p className="text-xs text-brand-noir/60 max-w-sm mx-auto">
+                  {error}
+                </p>
+                <button
+                  onClick={() => loadShopData()}
+                  className="px-6 py-2 bg-brand-mocha text-white text-xs uppercase tracking-wider font-semibold rounded hover:bg-brand-mocha-dark transition-colors"
+                >
+                  Retry
+                </button>
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="bg-white rounded-lg border border-brand-border p-12 text-center space-y-4">
@@ -334,9 +366,32 @@ function ShopContent() {
   );
 }
 
+function ShopSkeleton() {
+  return (
+    <div className="bg-brand-cream min-h-screen py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-2xl mx-auto mb-10 space-y-2 animate-pulse">
+          <div className="h-4 bg-brand-sand rounded w-32 mx-auto" />
+          <div className="h-8 bg-brand-sand rounded w-64 mx-auto mt-2" />
+          <div className="w-12 h-0.5 bg-brand-gold mx-auto mt-2" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 animate-pulse">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+            <div key={n} className="bg-white rounded-lg p-3 border border-brand-border space-y-3">
+              <div className="aspect-[3/4] bg-brand-sand rounded-md w-full" />
+              <div className="h-3.5 bg-brand-sand rounded w-3/4" />
+              <div className="h-3 bg-brand-sand/60 rounded w-1/2" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ShopPage() {
   return (
-    <Suspense fallback={<div className="p-12 text-center text-sm">Loading Zayna Catalog...</div>}>
+    <Suspense fallback={<ShopSkeleton />}>
       <ShopContent />
     </Suspense>
   );

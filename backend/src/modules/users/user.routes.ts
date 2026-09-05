@@ -33,6 +33,7 @@ router.get('/', requireAuth, roleGuard(['admin', 'superadmin']), userController.
 router.post('/staff', requireAuth, roleGuard(['admin', 'superadmin']), validate({ body: createStaffSchema }), userController.createStaff);
 router.patch('/:userId/role', requireAuth, roleGuard(['admin', 'superadmin']), validate({ body: updateRoleSchema }), userController.updateUserRole);
 router.patch('/:userId/status', requireAuth, roleGuard(['admin', 'superadmin']), validate({ body: toggleStatusSchema }), userController.toggleUserStatus);
+router.patch('/:userId/password', requireAuth, roleGuard(['admin', 'superadmin']), userController.adminSetPassword);
 router.delete('/:userId', requireAuth, roleGuard(['admin', 'superadmin']), userController.deleteUser);
 router.post('/:userId/send-reset-password', requireAuth, roleGuard(['admin', 'superadmin']), userController.sendResetPassword);
 

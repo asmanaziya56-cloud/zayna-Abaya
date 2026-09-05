@@ -248,14 +248,23 @@ export function CartDrawer() {
             </div>
 
             {/* Primary Checkout Button */}
-            <Link
-              href="/checkout"
-              onClick={closeDrawer}
-              className="w-full flex items-center justify-center space-x-2 bg-brand-mocha text-white py-3 rounded-md text-xs font-semibold uppercase tracking-wider hover:bg-brand-mocha-dark transition-all shadow-md active:scale-[0.99]"
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                closeDrawer();
+                if (typeof window !== 'undefined' && items.length > 0) {
+                  try {
+                    sessionStorage.setItem('zayna_checkout_items', JSON.stringify(items));
+                  } catch {}
+                }
+                window.location.href = '/checkout';
+              }}
+              className="w-full flex items-center justify-center space-x-2 bg-brand-mocha text-white py-3.5 rounded-md text-xs font-semibold uppercase tracking-wider hover:bg-brand-mocha-dark transition-all shadow-md active:scale-[0.99] cursor-pointer"
             >
               <span>Proceed to Checkout</span>
               <ArrowRight className="w-4 h-4" />
-            </Link>
+            </button>
 
             <p className="text-center text-[10px] text-brand-noir/50">
               Tax included • 100% Secure Checkout with Razorpay

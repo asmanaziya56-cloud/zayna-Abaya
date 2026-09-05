@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Sparkles, Play } from 'lucide-react';
 import { IHeroBanner, IHeroSlide } from '../../types';
+import initialSettings from '../../lib/constants/initialSettings.json';
 
 interface HeroSliderProps {
   banners?: (IHeroBanner | IHeroSlide)[];
@@ -13,35 +14,11 @@ interface HeroSliderProps {
 export function HeroSlider({ banners }: HeroSliderProps) {
   const [current, setCurrent] = useState(0);
 
-  // Default fallback slides if none in DB
-  const slides = banners && banners.length > 0 ? banners : [
-    {
-      _id: 'default-1',
-      badgeText: 'Boutique Haute Couture',
-      title: 'The Royal Noor Eid Edit',
-      subtitle: 'Hand-embroidered silhouettes adorned with champagne zari & pure silk drape',
-      mediaType: 'image' as const,
-      mediaUrl: 'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1800&auto=format&fit=crop',
-      imageUrl: 'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1800&auto=format&fit=crop',
-      ctaText: 'Explore Collection',
-      ctaLink: '/shop?category=luxury-occasion',
-      secondaryCtaText: 'View Lookbook',
-      secondaryCtaLink: '/shop'
-    },
-    {
-      _id: 'default-2',
-      badgeText: 'Boutique Haute Couture',
-      title: 'Everyday Minimalist Grace',
-      subtitle: 'Crease-resistant Firdaus crepe tailored for modern everyday modesty',
-      mediaType: 'image' as const,
-      mediaUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1800&auto=format&fit=crop',
-      imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1800&auto=format&fit=crop',
-      ctaText: 'Shop Essentials',
-      ctaLink: '/shop?category=everyday-essentials',
-      secondaryCtaText: 'View Lookbook',
-      secondaryCtaLink: '/shop'
-    }
-  ];
+  // Use actual saved hero slides immediately
+  const slides: any[] =
+    banners && banners.length > 0
+      ? banners
+      : ((initialSettings.heroSection?.slides as any) || []);
 
   useEffect(() => {
     if (slides.length <= 1) return;
@@ -53,7 +30,7 @@ export function HeroSlider({ banners }: HeroSliderProps) {
 
   return (
     <div className="relative w-full h-[70vh] sm:h-[80vh] overflow-hidden bg-brand-dark">
-      {slides.map((slide, idx) => {
+      {slides.map((slide: any, idx: number) => {
         const rawUrl = (slide as any).mediaUrl || (slide as any).imageUrl || '';
         const isVideo =
           (slide as any).mediaType === 'video' ||

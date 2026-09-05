@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ShoppingBag, Eye, Sparkles, Heart } from 'lucide-react';
+import { ShoppingBag, Eye, Sparkles, Heart, X, Ruler } from 'lucide-react';
 import { IProduct, IButtonSettings } from '../../types';
 import { formatINR, calculateDiscountPercent } from '../../lib/utils/currency';
 import { useCart } from '../providers/CartProvider';
@@ -47,8 +47,9 @@ export function ProductCard({ product, buttonSettings }: ProductCardProps) {
     });
   }, [buttonSettings]);
 
-  const [selectedSize, setSelectedSize] = useState<string>(
-    product.variants?.[0]?.size || '54'
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<any>(
+    product.variants?.[0] || null
   );
 
   const discountPercent = calculateDiscountPercent(product.price, product.salePrice);
@@ -62,17 +63,23 @@ export function ProductCard({ product, buttonSettings }: ProductCardProps) {
     toggleWishlist(product);
   };
 
-  const handleQuickAdd = async (e: React.MouseEvent) => {
+  const handleOpenOptions = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowOptionsModal(true);
+  };
+
+  const handleConfirmAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setAdding(true);
     try {
-      const variant = product.variants?.find((v) => v.size === selectedSize) || product.variants?.[0];
       await addItem({
         productId: product._id,
-        variantId: variant?._id,
+        variantId: selectedVariant?._id,
         quantity: 1
       });
+      setShowOptionsModal(false);
     } finally {
       setAdding(false);
     }
@@ -129,7 +136,7 @@ export function ProductCard({ product, buttonSettings }: ProductCardProps) {
         {/* Quick Add Overlay on Desktop Hover */}
         <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
           <button
-            onClick={handleQuickAdd}
+            onClick={handleOpenOptions}
             disabled={adding}
             className="w-full py-2 rounded text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 shadow-md cursor-pointer hover:opacity-90 active:scale-[0.99]"
             style={{
@@ -177,7 +184,7 @@ export function ProductCard({ product, buttonSettings }: ProductCardProps) {
             </div>
             {product.variants && product.variants.length > 0 && (
               <span className="text-[10px] text-brand-noir/50">
-                Sizes: {product.variants.map((v) => v.size).join(', ')}
+                Sizes: {product.variants.map((v) => v.size).filter(Boolean).join(', ')}
               </span>
             )}
           </div>
@@ -185,20 +192,106 @@ export function ProductCard({ product, buttonSettings }: ProductCardProps) {
           {/* Visible Direct Add to Bag button */}
           <button
             type="button"
-            onClick={handleQuickAdd}
+            onClick={handleOpenOptions}
             disabled={adding}
             className="px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-all flex items-center space-x-1 shadow-xs active:scale-95 cursor-pointer shrink-0 hover:opacity-90"
             style={{
               backgroundColor: btnSettings?.addToCartBgColor || '#0B1B3D',
               color: btnSettings?.addToCartTextColor || '#FFFFFF'
             }}
-            title="Add to shopping bag"
+            title="Select size & add to bag"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
             <span>{adding ? 'Adding...' : (btnSettings?.addToCartText ? btnSettings.addToCartText.replace(/add to shopping bag/i, 'Add to Bag') : 'Add to Bag')}</span>
           </button>
         </div>
       </div>
+
+      {/* Quick Size & Color Selector Modal */}
+      {showOptionsModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowOptionsModal(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-xl max-w-sm w-full p-5 border border-brand-border shadow-2xl relative space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowOptionsModal(false)}
+              className="absolute top-3 right-3 text-brand-noir/40 hover:text-brand-noir p-1 rounded-full hover:bg-brand-sand/60"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex gap-3 items-center pb-3 border-b border-brand-border">
+              <div className="w-14 h-16 relative bg-brand-sand rounded-lg overflow-hidden shrink-0 border border-brand-border">
+                <Image src={mainImage} alt={product.name} fill unoptimized className="object-cover" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-serif text-sm font-semibold text-brand-noir line-clamp-1">{product.name}</p>
+                <p className="font-bold text-brand-mocha text-sm">{formatINR(selectedVariant?.salePrice || selectedVariant?.price || currentPrice)}</p>
+                {selectedVariant?.color && (
+                  <p className="text-[11px] text-brand-noir/60">Color: <strong>{selectedVariant.color}</strong></p>
+                )}
+              </div>
+            </div>
+
+            {/* Size Selector */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-semibold text-brand-noir uppercase tracking-wider text-[11px]">
+                  Select Length / Size: <span className="text-brand-mocha font-bold">{selectedVariant?.size || 'Standard'}</span>
+                </span>
+                <Link href={`/product/${product.slug}`} className="text-[10px] text-brand-mocha hover:underline flex items-center gap-0.5">
+                  <Ruler className="w-3 h-3" /> Size Guide
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-5 gap-2">
+                {product.variants?.map((v) => {
+                  const isSelected = selectedVariant?._id === v._id || selectedVariant?.size === v.size;
+                  return (
+                    <button
+                      key={v.sku || v.size}
+                      type="button"
+                      onClick={() => setSelectedVariant(v)}
+                      className={`py-2 text-xs font-bold rounded-md transition-all ${
+                        isSelected
+                          ? 'bg-brand-mocha text-white shadow-sm ring-2 ring-brand-mocha/30'
+                          : 'bg-brand-sand/50 text-brand-noir border border-brand-border hover:bg-brand-sand'
+                      }`}
+                    >
+                      {v.size}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-brand-noir/50">
+                {selectedVariant?.size === '52' && "Recommended for height 5'0\" - 5'2\""}
+                {selectedVariant?.size === '54' && "Recommended for height 5'3\" - 5'4\""}
+                {selectedVariant?.size === '56' && "Recommended for height 5'5\" - 5'6\""}
+                {selectedVariant?.size === '58' && "Recommended for height 5'7\" - 5'8\""}
+                {selectedVariant?.size === '60' && "Recommended for height 5'9\" and above"}
+              </p>
+            </div>
+
+            {/* Confirm Button */}
+            <button
+              type="button"
+              onClick={handleConfirmAdd}
+              disabled={adding}
+              className="w-full py-3 rounded-lg text-xs font-bold uppercase tracking-widest bg-brand-mocha text-white hover:bg-brand-mocha-dark transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>{adding ? 'Adding to Bag...' : `Add Size ${selectedVariant?.size || ''} to Bag`}</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

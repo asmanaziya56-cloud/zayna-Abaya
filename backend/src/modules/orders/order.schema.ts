@@ -31,13 +31,17 @@ export const cancelOrderSchema = z.object({
 });
 
 export const updateFulfillmentSchema = z.object({
-  fulfillmentStatus: z.enum(['unfulfilled', 'processing', 'shipped', 'delivered', 'cancelled']),
+  fulfillmentStatus: z.enum(['unfulfilled', 'processing', 'shipped', 'delivered', 'cancelled']).optional(),
+  status: z.enum(['unfulfilled', 'processing', 'shipped', 'delivered', 'cancelled']).optional(),
+  courier: z.string().optional().or(z.literal('')),
+  trackingNumber: z.string().optional().or(z.literal('')),
+  trackingUrl: z.string().optional().or(z.literal('')),
   tracking: z
     .object({
-      courier: z.string().optional(),
-      trackingNumber: z.string().optional(),
-      trackingUrl: z.string().url().optional(),
-      estimatedDelivery: z.string().transform((v) => new Date(v)).optional(),
+      courier: z.string().optional().or(z.literal('')),
+      trackingNumber: z.string().optional().or(z.literal('')),
+      trackingUrl: z.string().optional().or(z.literal('')),
+      estimatedDelivery: z.any().optional(),
       statusNotes: z.string().optional()
     })
     .optional()

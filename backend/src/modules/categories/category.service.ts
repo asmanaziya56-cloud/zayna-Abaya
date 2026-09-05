@@ -3,15 +3,15 @@ import { AppError } from '../../middleware/errorHandler.js';
 
 export class CategoryService {
   async getActiveCategories() {
-    return Category.find({ active: true }).sort({ sortOrder: 1, name: 1 });
+    return Category.find({ active: true }).sort({ sortOrder: 1, name: 1 }).lean();
   }
 
   async getAllCategories() {
-    return Category.find().sort({ sortOrder: 1, name: 1 });
+    return Category.find().sort({ sortOrder: 1, name: 1 }).lean();
   }
 
   async getCategoryBySlug(slug: string) {
-    const category = await Category.findOne({ slug });
+    const category = await Category.findOne({ slug }).lean();
     if (!category) {
       throw new AppError({ message: 'Category not found', statusCode: 404, code: 'NOT_FOUND' });
     }

@@ -94,5 +94,8 @@ ProductSchema.index({
 
 ProductSchema.index({ price: 1, isDeleted: 1 });
 ProductSchema.index({ createdAt: -1, isDeleted: 1 });
+ProductSchema.index({ isDeleted: 1, 'flags.isBestseller': -1, createdAt: -1 });
+ProductSchema.index({ isDeleted: 1, category: 1, createdAt: -1 });
+ProductSchema.index({ isDeleted: 1, slug: 1 });
 
 export const Product = mongoose.model<IProduct>('Product', ProductSchema);

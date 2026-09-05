@@ -4,6 +4,7 @@ import { siteSettingsService } from './settings.service.js';
 export class SiteSettingsController {
   async getPublicSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
       const settings = await siteSettingsService.getPublicSettings();
       res.json({ success: true, data: settings });
     } catch (err) {

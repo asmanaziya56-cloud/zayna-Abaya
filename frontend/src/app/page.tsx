@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { HeroSlider } from '../components/home/HeroSlider';
 import { ValueProps } from '../components/home/ValueProps';
-import { CategoryBanners } from '../components/home/CategoryBanners';
+import { CategoryBanners, defaultCategories } from '../components/home/CategoryBanners';
 import { BestsellersGrid } from '../components/home/BestsellersGrid';
 import { BrandStory } from '../components/home/BrandStory';
 import { InstagramFeed } from '../components/home/InstagramFeed';
@@ -12,12 +12,13 @@ import { contentApi, HomepageContent } from '../lib/api/content.api';
 import { productsApi } from '../lib/api/products.api';
 import { settingsApi } from '../lib/api/settings.api';
 import { ICategory, IProduct, ISiteSettings, IHomepageSection } from '../types';
+import initialSettings from '../lib/constants/initialSettings.json';
 
 const defaultSections: IHomepageSection[] = [
   { id: 'hero', name: 'Hero Campaign (Image / Video)', enabled: true, order: 1 },
-  { id: 'valueProps', name: 'Value Propositions', enabled: true, order: 2 },
-  { id: 'categories', name: 'Curated Collections Showcase', enabled: true, order: 3 },
-  { id: 'bestsellers', name: 'Coveted Bestsellers Grid', enabled: true, order: 4 },
+  { id: 'categories', name: 'Curated Collections Showcase', enabled: true, order: 2 },
+  { id: 'bestsellers', name: 'Coveted Bestsellers Grid', enabled: true, order: 3 },
+  { id: 'valueProps', name: 'Value Propositions', enabled: true, order: 4 },
   { id: 'brandStory', name: 'Atelier Craftsmanship Story', enabled: true, order: 5 },
   { id: 'instagram', name: 'Instagram Lookbook Journal', enabled: true, order: 6 },
   { id: 'faqs', name: 'Client Concierge & Sizing FAQs', enabled: true, order: 7 }
@@ -25,10 +26,10 @@ const defaultSections: IHomepageSection[] = [
 
 export default function HomePage() {
   const [content, setContent] = useState<HomepageContent | null>(null);
-  const [categories, setCategories] = useState<ICategory[]>([]);
+  const [categories, setCategories] = useState<ICategory[]>(defaultCategories);
   const [bestsellers, setBestsellers] = useState<IProduct[]>([]);
-  const [settings, setSettings] = useState<ISiteSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<ISiteSettings | null>(initialSettings as any);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function loadData() {

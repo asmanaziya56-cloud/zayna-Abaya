@@ -4,6 +4,7 @@ import { productService } from './product.service.js';
 export class ProductController {
   async getProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
       const result = await productService.getProducts(req.query);
       res.json({
         success: true,
@@ -17,6 +18,7 @@ export class ProductController {
 
   async getProductBySlug(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
       const data = await productService.getProductBySlug(req.params.slug as string);
       res.json({ success: true, data });
     } catch (err) {

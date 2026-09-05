@@ -4,6 +4,7 @@ import { contentService } from './content.service.js';
 export class ContentController {
   async getHomepageContent(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
       const data = await contentService.getHomepageContent();
       res.json({ success: true, data });
     } catch (err) {

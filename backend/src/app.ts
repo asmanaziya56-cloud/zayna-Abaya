@@ -61,23 +61,16 @@ if (env.SENTRY_DSN) {
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }
-  })
+  }) as any
 );
 
-// 3. Explicit CORS allowlist
-const allowedOrigins = env.CORS_ORIGINS.split(',').map((o) => o.trim());
+// 3. Dynamic CORS configuration for all frontend and deployment origins
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (such as mobile apps, curl, postman) or matching origin
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Blocked by CORS policy'));
-      }
-    },
+    origin: true,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-session-id', 'X-Session-Id']
   })
 );
 
@@ -175,15 +168,17 @@ apiV1.post('/upload', (req: Request, res: Response) => {
       return;
     }
 
+    const host = req.get('host') || 'localhost:5000';
+    const protocol = (req.headers['x-forwarded-proto'] as string) || (req.secure ? 'https' : 'http');
+    const baseUrl = `${protocol}://${host}`;
+
     const savedUrls: string[] = [];
     for (const dataUrl of images) {
       if (typeof dataUrl !== 'string') continue;
-      // If it's already a web URL, keep it
       if (dataUrl.startsWith('http://') || dataUrl.startsWith('https://')) {
         savedUrls.push(dataUrl);
         continue;
       }
-      // If it's a base64 Data URL, extract buffer and save to backend/uploads
       const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
       if (matches && matches.length === 3) {
         const mime = matches[1]?.toLowerCase() || '';
@@ -198,11 +193,18 @@ apiV1.post('/upload', (req: Request, res: Response) => {
         else if (mime.includes('webp')) ext = 'webp';
         else if (mime.includes('gif')) ext = 'gif';
 
-        const buffer = Buffer.from(rawBase64, 'base64');
-        const filename = `zayna-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
-        const filepath = path.join(uploadsDir, filename);
-        fs.writeFileSync(filepath, buffer);
-        savedUrls.push(`http://localhost:5000/uploads/${filename}`);
+        try {
+          const buffer = Buffer.from(rawBase64, 'base64');
+          const filename = `zayna-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
+          const filepath = path.join(uploadsDir, filename);
+          fs.writeFileSync(filepath, buffer);
+          savedUrls.push(`${baseUrl}/uploads/${filename}`);
+        } catch {
+          // If filesystem write fails on serverless container, return dataUrl directly
+          savedUrls.push(dataUrl);
+        }
+      } else {
+        savedUrls.push(dataUrl);
       }
     }
 

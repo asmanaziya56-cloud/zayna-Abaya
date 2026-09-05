@@ -367,6 +367,29 @@ export class UserService {
       resetLink: mailRes.resetLink
     };
   }
+
+  async adminSetPassword(userId: string, newPassword: string) {
+    const user = await User.findOne({ _id: new Types.ObjectId(userId), isDeleted: { $ne: true } });
+    if (!user) {
+      throw new AppError({ message: 'User not found', statusCode: 404, code: 'NOT_FOUND' });
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      throw new AppError({ message: 'New password must be at least 6 characters long', statusCode: 400, code: 'INVALID_INPUT' });
+    }
+
+    const salt = await bcrypt.genSalt(12);
+    user.password = await bcrypt.hash(newPassword, salt);
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null as any;
+    user.refreshTokens = []; // Revoke active sessions
+    await user.save();
+
+    return {
+      success: true,
+      message: `Password for "${user.name}" (${user.email}) updated successfully!`
+    };
+  }
 }
 
 export const userService = new UserService();

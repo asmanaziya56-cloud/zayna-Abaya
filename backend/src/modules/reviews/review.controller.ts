@@ -13,7 +13,7 @@ export class ReviewController {
 
   async createReview(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const review = await reviewService.createReview(req.user!._id, req.body);
+      const review = await reviewService.createReview(req.user?._id, req.body);
       res.status(201).json({ success: true, data: review });
     } catch (err) {
       next(err);

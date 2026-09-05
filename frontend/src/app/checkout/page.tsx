@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -13,8 +13,56 @@ import { loadRazorpayScript } from '../../lib/razorpay';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, items, subtotal, totalAmount, clearCart } = useCart();
+  const { cart, items: cartItems, subtotal: cartSubtotal, totalAmount: cartTotalAmount, clearCart, isInitialized, closeDrawer } = useCart();
   const { user } = useAuth();
+
+  const [checkoutItems, setCheckoutItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    closeDrawer();
+  }, [closeDrawer]);
+
+  useEffect(() => {
+    if (cartItems && cartItems.length > 0) {
+      setCheckoutItems(cartItems);
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        const buynow = sessionStorage.getItem('zayna_buynow');
+        if (buynow) {
+          const parsed = JSON.parse(buynow);
+          if (parsed && (parsed.productId || parsed._id)) {
+            setCheckoutItems([parsed]);
+            return;
+          }
+        }
+
+        const savedCheckout = sessionStorage.getItem('zayna_checkout_items');
+        if (savedCheckout) {
+          const parsed = JSON.parse(savedCheckout);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCheckoutItems(parsed);
+            return;
+          }
+        }
+
+        const cached = localStorage.getItem('zayna_cart');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) {
+            setCheckoutItems(parsed.items);
+            return;
+          }
+        }
+      } catch {}
+    }
+  }, [cartItems]);
+
+  const activeItems = checkoutItems.length > 0 ? checkoutItems : cartItems;
+  const activeSubtotal = activeItems.reduce((s, it) => s + ((it.price || 0) * (it.quantity || 1)), 0) || cartSubtotal;
+  const activeTotalAmount = cartTotalAmount || activeSubtotal;
 
   // Form states
   const [email, setEmail] = useState(user?.email || '');
@@ -30,7 +78,34 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  if (items.length === 0) {
+  // 1. While cart is hydrating from storage/server, show elegant loading skeleton
+  if (!isInitialized && activeItems.length === 0) {
+    return (
+      <div className="bg-brand-cream min-h-screen py-12 animate-pulse">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="h-6 w-48 bg-brand-sand rounded mb-8" />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+            <div className="lg:col-span-7 bg-white p-8 rounded-xl border border-brand-border space-y-6">
+              <div className="h-5 w-40 bg-brand-sand rounded" />
+              <div className="space-y-4">
+                <div className="h-10 bg-brand-sand/50 rounded" />
+                <div className="h-10 bg-brand-sand/50 rounded" />
+                <div className="h-10 bg-brand-sand/50 rounded" />
+              </div>
+            </div>
+            <div className="lg:col-span-5 bg-white p-8 rounded-xl border border-brand-border space-y-4">
+              <div className="h-5 w-32 bg-brand-sand rounded" />
+              <div className="h-24 bg-brand-sand/50 rounded-lg" />
+              <div className="h-12 bg-brand-sand rounded-lg" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Only show empty bag once initialization is completely confirmed AND activeItems is empty
+  if (isInitialized && activeItems.length === 0) {
     return (
       <div className="max-w-md mx-auto py-24 text-center px-4">
         <h2 className="font-serif text-2xl text-brand-noir mb-3">Your bag is empty</h2>
@@ -49,7 +124,7 @@ export default function CheckoutPage() {
 
     try {
       // 1. Create order on backend - safely map product IDs
-      const orderItems = items
+      const orderItems = activeItems
         .map((item: any) => {
           const rawId = item.productId || item.product?._id || item.product || item._id;
           const pId = typeof rawId === 'string' ? rawId : rawId?.toString?.() || '';
@@ -339,7 +414,7 @@ export default function CheckoutPage() {
                 disabled={submitting}
                 className="w-full flex items-center justify-center space-x-2 bg-brand-mocha hover:bg-brand-mocha-dark text-white py-4 rounded-md text-xs font-semibold uppercase tracking-wider transition-all shadow-lg active:scale-[0.99] disabled:opacity-50"
               >
-                <span>{submitting ? 'Connecting with Payment Gateway...' : `Pay ${formatINR(totalAmount || subtotal)}`}</span>
+                <span>{submitting ? 'Connecting with Payment Gateway...' : `Pay ${formatINR(activeTotalAmount || activeSubtotal)}`}</span>
               </button>
             </form>
           </div>
@@ -348,19 +423,19 @@ export default function CheckoutPage() {
           <div className="lg:col-span-5 space-y-6">
             <div className="bg-white p-6 rounded-xl border border-brand-border shadow-sm space-y-5">
               <h3 className="font-serif text-base text-brand-noir pb-3 border-b border-brand-border">
-                Your Order ({items.reduce((s, i) => s + i.quantity, 0)} items)
+                Your Order ({activeItems.reduce((s, i) => s + (i.quantity || 1), 0)} items)
               </h3>
 
               {/* Items preview list */}
               <div className="space-y-4 max-h-80 overflow-y-auto pr-1 divide-y divide-brand-sand">
-                {items.map((item) => (
+                {activeItems.map((item) => (
                   <div key={item._id || `${item.productId}-${item.variantId}`} className="flex space-x-3 pt-3 first:pt-0">
                     <div className="relative w-14 h-18 bg-brand-sand rounded overflow-hidden shrink-0 border border-brand-border">
                       {item.image && (
                         <Image src={item.image} alt={item.title || (item as any).name || 'Zayna Creation'} fill unoptimized className="object-cover" />
                       )}
                       <span className="absolute top-0 right-0 bg-brand-noir text-white text-[9px] w-4 h-4 rounded-bl flex items-center justify-center font-bold">
-                        {item.quantity}
+                        {item.quantity || 1}
                       </span>
                     </div>
                     <div className="flex-1 flex flex-col justify-center">
@@ -376,7 +451,7 @@ export default function CheckoutPage() {
                       )}
                     </div>
                     <div className="text-xs font-semibold text-brand-noir self-center">
-                      {formatINR(item.price * item.quantity)}
+                      {formatINR((item.price || 0) * (item.quantity || 1))}
                     </div>
                   </div>
                 ))}
@@ -386,7 +461,7 @@ export default function CheckoutPage() {
               <div className="pt-4 border-t border-brand-border space-y-2 text-xs text-brand-noir/80">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span className="font-medium text-brand-noir">{formatINR(subtotal)}</span>
+                  <span className="font-medium text-brand-noir">{formatINR(activeSubtotal)}</span>
                 </div>
                 {cart?.discountAmount ? (
                   <div className="flex justify-between text-emerald-700">
@@ -406,7 +481,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-base font-serif font-bold text-brand-noir pt-3 border-t border-brand-border">
                   <span>Total Payable</span>
-                  <span>{formatINR(totalAmount || subtotal)}</span>
+                  <span>{formatINR(activeTotalAmount || activeSubtotal)}</span>
                 </div>
               </div>
 

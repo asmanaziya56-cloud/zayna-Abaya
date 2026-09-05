@@ -23,6 +23,7 @@ import { formatINR, calculateDiscountPercent } from '../../../lib/utils/currency
 import { useCart } from '../../../components/providers/CartProvider';
 import { useWishlist } from '../../../components/providers/WishlistProvider';
 import { SizeGuideModal } from '../../../components/product/SizeGuideModal';
+import { ProductReviewsAndQuery } from '../../../components/product/ProductReviewsAndQuery';
 import { ProductCard } from '../../../components/shop/ProductCard';
 
 export default function ProductDetailPage() {
@@ -30,7 +31,7 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const slug = params.slug as string;
 
-  const { addItem } = useCart();
+  const { addItem, closeDrawer } = useCart();
   const { isWishlisted: checkWishlisted, toggleWishlist } = useWishlist();
 
   const [product, setProduct] = useState<IProduct | null>(null);
@@ -66,19 +67,23 @@ export default function ProductDetailPage() {
           if (productData.variants && productData.variants.length > 0) {
             setSelectedVariant(productData.variants[0]);
           }
+          // Unblock main product view immediately
+          setLoading(false);
 
-          // Load related items
+          // Load related items in background without blocking page render
           const relatedItems = (prod.value as any)?.related;
           if (Array.isArray(relatedItems) && relatedItems.length > 0) {
             setRelatedProducts(relatedItems.filter((p: any) => p._id !== productData._id));
           } else {
-            const relatedRes = await productsApi.getProducts({ limit: 8 });
-            setRelatedProducts(relatedRes.products.filter((p) => p._id !== productData._id));
+            productsApi.getProducts({ limit: 8 }).then((relatedRes) => {
+              setRelatedProducts(relatedRes.products.filter((p) => p._id !== productData._id));
+            }).catch(() => {});
           }
+        } else {
+          setLoading(false);
         }
       } catch (err) {
         console.error('Failed to load product', err);
-      } finally {
         setLoading(false);
       }
     }
@@ -90,8 +95,27 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center text-sm font-serif">
-        Curating product details...
+      <div className="bg-brand-cream min-h-screen py-10 animate-pulse">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="h-4 w-48 bg-brand-sand rounded mb-8" />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+            <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4">
+              <div className="flex md:flex-col gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="w-16 h-20 bg-brand-sand rounded-lg" />
+                ))}
+              </div>
+              <div className="flex-1 aspect-[3/4] bg-brand-sand rounded-xl" />
+            </div>
+            <div className="lg:col-span-5 space-y-6">
+              <div className="h-4 w-32 bg-brand-sand rounded" />
+              <div className="h-8 w-3/4 bg-brand-sand rounded" />
+              <div className="h-6 w-24 bg-brand-sand rounded" />
+              <div className="h-20 w-full bg-brand-sand rounded-lg" />
+              <div className="h-12 w-full bg-brand-sand rounded-lg" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -115,21 +139,43 @@ export default function ProductDetailPage() {
     'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1200&auto=format&fit=crop'
   ];
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = async (shouldOpenDrawer: boolean = true) => {
     setAddingToCart(true);
     try {
       await addItem({
         productId: product._id,
         variantId: selectedVariant?._id,
         quantity
-      });
+      }, shouldOpenDrawer);
+      return true;
+    } catch (err: any) {
+      console.error('Failed to add item to bag', err);
+      alert(err?.response?.data?.error?.message || 'Failed to add item to bag. Please try again.');
+      return false;
     } finally {
       setAddingToCart(false);
     }
   };
 
   const handleBuyNow = async () => {
-    await handleAddToCart();
+    closeDrawer();
+    if (typeof window !== 'undefined' && product) {
+      const buyNowItem = {
+        _id: selectedVariant?._id || product._id,
+        productId: product._id,
+        variantId: selectedVariant?._id,
+        title: product.name,
+        name: product.name,
+        slug: product.slug,
+        price: selectedVariant?.salePrice || selectedVariant?.price || product.salePrice || product.price,
+        image: (product.images && product.images[0]) || '',
+        size: selectedVariant?.size,
+        color: selectedVariant?.color,
+        quantity: quantity || 1
+      };
+      sessionStorage.setItem('zayna_buynow', JSON.stringify(buyNowItem));
+    }
+    handleAddToCart(false).catch(() => {});
     router.push('/checkout');
   };
 
@@ -327,7 +373,7 @@ export default function ProductDetailPage() {
 
                 {/* Add to Cart Button */}
                 <button
-                  onClick={handleAddToCart}
+                  onClick={() => handleAddToCart(true)}
                   disabled={addingToCart || (selectedVariant ? selectedVariant.stock === 0 : false)}
                   className="flex-1 flex items-center justify-center space-x-2 py-3.5 rounded-md text-xs font-semibold uppercase tracking-widest transition-all shadow-md disabled:opacity-50 hover:opacity-90 cursor-pointer"
                   style={{
@@ -421,6 +467,13 @@ export default function ProductDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Customer Reviews & Q&A */}
+        {product && (
+          <div className="mt-16 pt-12 border-t border-brand-border">
+            <ProductReviewsAndQuery product={product} />
+          </div>
+        )}
 
         {/* Related Creations */}
         {settings?.productPage?.showYouMayAlsoAdmire !== false && relatedProducts.length > 0 && (

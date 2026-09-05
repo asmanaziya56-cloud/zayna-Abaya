@@ -4,6 +4,7 @@ import { categoryService } from './category.service.js';
 export class CategoryController {
   async getActive(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
       const categories = await categoryService.getActiveCategories();
       res.json({ success: true, data: categories });
     } catch (err) {

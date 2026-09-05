@@ -342,6 +342,7 @@ export class OrderService {
       Order.countDocuments(filter),
       Order.find(filter)
         .populate('userId', 'name email')
+        .populate('items.product', 'images name slug sku')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -364,10 +365,23 @@ export class OrderService {
       throw new AppError({ message: 'Order not found', statusCode: 404, code: 'NOT_FOUND' });
     }
 
-    order.fulfillmentStatus = data.fulfillmentStatus;
-    if (data.tracking) {
-      order.tracking = { ...order.tracking, ...data.tracking };
+    const newStatus = data.fulfillmentStatus || data.status;
+    if (newStatus) {
+      order.fulfillmentStatus = newStatus;
     }
+
+    const trackingObj: any = { ...(order.tracking || {}) };
+    if (data.courier !== undefined) trackingObj.courier = data.courier;
+    if (data.trackingNumber !== undefined) trackingObj.trackingNumber = data.trackingNumber;
+    if (data.trackingUrl !== undefined) trackingObj.trackingUrl = data.trackingUrl;
+    if (data.tracking) {
+      if (data.tracking.courier !== undefined) trackingObj.courier = data.tracking.courier;
+      if (data.tracking.trackingNumber !== undefined) trackingObj.trackingNumber = data.tracking.trackingNumber;
+      if (data.tracking.trackingUrl !== undefined) trackingObj.trackingUrl = data.tracking.trackingUrl;
+      if (data.tracking.statusNotes !== undefined) trackingObj.statusNotes = data.tracking.statusNotes;
+    }
+
+    order.tracking = trackingObj;
     await order.save();
 
     await logAuditEvent({
@@ -375,7 +389,7 @@ export class OrderService {
       action: 'ORDER_FULFILLMENT_UPDATED',
       resource: 'Order',
       resourceId: order._id.toString(),
-      metadata: { fulfillmentStatus: data.fulfillmentStatus }
+      metadata: { fulfillmentStatus: order.fulfillmentStatus }
     });
 
     return order;

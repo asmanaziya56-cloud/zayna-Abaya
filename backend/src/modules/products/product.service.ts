@@ -4,8 +4,23 @@ import { Category } from '../categories/category.model.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { logAuditEvent } from '../audit/audit.model.js';
 
+const slugCache = new Map<string, { data: any; time: number }>();
+const queryCache = new Map<string, { data: any; time: number }>();
+
+function clearProductCaches() {
+  slugCache.clear();
+  queryCache.clear();
+}
+
 export class ProductService {
   async getProducts(params: any) {
+    const cacheKey = JSON.stringify(params || {});
+    const now = Date.now();
+    const cached = queryCache.get(cacheKey);
+    if (cached && now - cached.time < 60000) {
+      return cached.data;
+    }
+
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 20));
     const skip = (page - 1) * limit;
@@ -22,7 +37,7 @@ export class ProductService {
       if (Types.ObjectId.isValid(params.category)) {
         filter.category = new Types.ObjectId(params.category);
       } else {
-        const cat = await Category.findOne({ slug: params.category });
+        const cat = await Category.findOne({ slug: params.category }).lean();
         if (cat) filter.category = cat._id;
       }
     }
@@ -66,14 +81,30 @@ export class ProductService {
     const [total, products] = await Promise.all([
       Product.countDocuments(filter),
       Product.find(filter)
+        .select({
+          name: 1,
+          slug: 1,
+          sku: 1,
+          price: 1,
+          salePrice: 1,
+          stock: 1,
+          category: 1,
+          collectionId: 1,
+          flags: 1,
+          variants: 1,
+          tags: 1,
+          createdAt: 1,
+          images: { $slice: 2 }
+        })
         .populate('category', 'name slug')
         .populate('collectionId', 'name slug')
         .sort(sort)
         .skip(skip)
         .limit(limit)
+        .lean()
     ]);
 
-    return {
+    const result = {
       products,
       pagination: {
         total,
@@ -82,12 +113,22 @@ export class ProductService {
         totalPages: Math.ceil(total / limit)
       }
     };
+
+    queryCache.set(cacheKey, { data: result, time: now });
+    return result;
   }
 
   async getProductBySlug(slug: string) {
+    const now = Date.now();
+    const cached = slugCache.get(slug);
+    if (cached && now - cached.time < 60000) {
+      return cached.data;
+    }
+
     const product = await Product.findOne({ slug, isDeleted: { $ne: true } })
       .populate('category', 'name slug')
-      .populate('collectionId', 'name slug');
+      .populate('collectionId', 'name slug')
+      .lean();
 
     if (!product) {
       throw new AppError({ message: 'Product not found', statusCode: 404, code: 'NOT_FOUND' });
@@ -95,20 +136,25 @@ export class ProductService {
 
     // Fetch related products from same category
     const related = await Product.find({
-      category: product.category,
-      _id: { $ne: product._id },
+      category: (product as any).category?._id || (product as any).category,
+      _id: { $ne: (product as any)._id },
       isDeleted: { $ne: true }
     })
       .limit(4)
-      .select('name slug price salePrice images stock flags');
+      .select('name slug price salePrice images stock flags')
+      .lean();
 
-    return {
+    const result = {
       product,
       related
     };
+
+    slugCache.set(slug, { data: result, time: now });
+    return result;
   }
 
   async createProduct(data: any, actorUserId?: string) {
+    clearProductCaches();
     const existing = await Product.findOne({
       $or: [{ slug: data.slug }, { sku: data.sku }]
     });
@@ -142,6 +188,7 @@ export class ProductService {
   }
 
   async updateProduct(id: string, data: any, actorUserId?: string) {
+    clearProductCaches();
     if (data.slug || data.sku) {
       const conflict = await Product.findOne({
         _id: { $ne: id },
@@ -182,6 +229,7 @@ export class ProductService {
   }
 
   async deleteProduct(id: string, actorUserId?: string) {
+    clearProductCaches();
     // Soft delete pattern
     const product = await Product.findOneAndUpdate(
       { _id: id, isDeleted: { $ne: true } },

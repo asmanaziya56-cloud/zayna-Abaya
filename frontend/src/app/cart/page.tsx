@@ -1,6 +1,6 @@
 'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ShoppingBag, ArrowRight, Trash2, Plus, Minus, Sparkles, ShieldCheck } from 'lucide-react';
@@ -8,6 +8,7 @@ import { useCart } from '../../components/providers/CartProvider';
 import { formatINR } from '../../lib/utils/currency';
 
 export default function CartPage() {
+  const router = useRouter();
   const {
     items,
     subtotal,
@@ -18,8 +19,14 @@ export default function CartPage() {
     removeItem,
     applyCoupon,
     removeCoupon,
-    cart
+    cart,
+    isInitialized,
+    closeDrawer
   } = useCart();
+
+  useEffect(() => {
+    closeDrawer();
+  }, [closeDrawer]);
 
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState('');
@@ -41,6 +48,20 @@ export default function CartPage() {
   };
 
   const progressPercent = Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100));
+
+  if (!isInitialized) {
+    return (
+      <div className="bg-brand-cream min-h-[70vh] py-16 px-4 animate-pulse">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="h-8 bg-brand-sand w-48 rounded" />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-8 bg-white p-6 rounded-xl border border-brand-border h-72" />
+            <div className="lg:col-span-4 bg-white p-6 rounded-xl border border-brand-border h-72" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -231,13 +252,16 @@ export default function CartPage() {
               </div>
             </div>
 
-            <Link
-              href="/checkout"
-              className="w-full flex items-center justify-center space-x-2 bg-brand-mocha hover:bg-brand-mocha-dark text-white py-3.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-all shadow-md active:scale-[0.99]"
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = '/checkout';
+              }}
+              className="w-full flex items-center justify-center space-x-2 bg-brand-mocha hover:bg-brand-mocha-dark text-white py-3.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-all shadow-md active:scale-[0.99] cursor-pointer"
             >
               <span>Proceed to Checkout</span>
               <ArrowRight className="w-4 h-4" />
-            </Link>
+            </button>
 
             <div className="pt-2 text-center text-[11px] text-brand-noir/60 space-y-1">
               <p className="flex items-center justify-center">

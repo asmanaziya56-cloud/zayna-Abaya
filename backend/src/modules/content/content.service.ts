@@ -4,10 +4,10 @@ import { AppError } from '../../middleware/errorHandler.js';
 export class ContentService {
   async getHomepageContent() {
     const [announcement, banners, instagram, faqs] = await Promise.all([
-      Announcement.findOne({ active: true }).sort({ updatedAt: -1 }),
-      HeroBanner.find({ active: true }).sort({ sortOrder: 1 }),
-      InstagramPost.find({ active: true }).sort({ sortOrder: 1 }),
-      FAQ.find({ active: true }).sort({ sortOrder: 1 })
+      Announcement.findOne({ active: true }).sort({ updatedAt: -1 }).lean(),
+      HeroBanner.find({ active: true }).sort({ sortOrder: 1 }).lean(),
+      InstagramPost.find({ active: true }).sort({ sortOrder: 1 }).lean(),
+      FAQ.find({ active: true }).sort({ sortOrder: 1 }).lean()
     ]);
 
     return {

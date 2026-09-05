@@ -1,18 +1,26 @@
 import { SiteSettings, ISiteSettings } from './settings.model.js';
 import { logAuditEvent } from '../audit/audit.model.js';
 
+let cachedPublicSettings: any = null;
+let publicSettingsCacheTime = 0;
+
 export class SiteSettingsService {
   async getSettings(): Promise<ISiteSettings> {
-    let settings = await SiteSettings.findOne();
+    let settings = await SiteSettings.findOne().lean();
     if (!settings) {
       settings = await SiteSettings.create({});
     }
-    return settings;
+    return settings as ISiteSettings;
   }
 
   async getPublicSettings() {
+    const now = Date.now();
+    if (cachedPublicSettings && now - publicSettingsCacheTime < 60000) {
+      return cachedPublicSettings;
+    }
+
     const settings = await this.getSettings();
-    return {
+    cachedPublicSettings = {
       brand: settings.brand,
       theme: settings.theme,
       announcementBar: settings.announcementBar,
@@ -40,9 +48,13 @@ export class SiteSettingsService {
       invoice: settings.invoice,
       faqs: settings.faqs
     };
+    publicSettingsCacheTime = now;
+    return cachedPublicSettings;
   }
 
   async updateSettings(data: any, actorUserId?: string) {
+    cachedPublicSettings = null;
+    publicSettingsCacheTime = 0;
     const settings = await SiteSettings.findOneAndUpdate(
       {},
       { $set: data },
