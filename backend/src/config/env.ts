@@ -12,9 +12,7 @@ try {
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().default('5000').transform(Number),
-  MONGODB_URI: z.string().default(
-    'mongodb+srv://asmanaziya041_db_user:qK9X1R4QMo17c5q9@zaynababya.wcakmac.mongodb.net/zayna_abaya?authSource=admin&retryWrites=true&w=majority'
-  ),
+  MONGODB_URI: z.string().default('mongodb://localhost:27017/zayna_abaya'),
   JWT_ACCESS_SECRET: z.string().default('abb3d8d8306c24a24c7cbf130a320c76_default_secret'),
   JWT_REFRESH_SECRET: z.string().default('7316a99e52d74e6fbbb09fd7c66d9a42_default_secret'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
