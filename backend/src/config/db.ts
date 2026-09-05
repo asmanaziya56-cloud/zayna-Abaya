@@ -3,6 +3,10 @@ import mongoose from 'mongoose';
 import { env } from './env.js';
 
 export async function connectDB(): Promise<typeof mongoose> {
+  if (mongoose.connection.readyState >= 1) {
+    return mongoose;
+  }
+
   try {
     // Ensure DNS SRV lookups succeed even if local ISP DNS fails on SRV records
     try {
@@ -19,7 +23,7 @@ export async function connectDB(): Promise<typeof mongoose> {
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('❌ MongoDB connection error:', error);
-    process.exit(1);
+    throw error;
   }
 }
 
