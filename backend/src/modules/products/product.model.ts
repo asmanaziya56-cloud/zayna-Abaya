@@ -15,6 +15,7 @@ export interface IProduct extends Document {
   slug: string;
   description: string;
   images: string[];
+  videos: string[];
   variants: IProductVariant[];
   sku: string;
   price: number; // Base display price in smallest currency unit
@@ -57,6 +58,7 @@ const ProductSchema = new Schema<IProduct>(
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
     description: { type: String, required: true },
     images: { type: [String], default: [] },
+    videos: { type: [String], default: [] },
     variants: { type: [ProductVariantSchema], default: [] },
     sku: { type: String, required: true, trim: true, index: true },
     price: { type: Number, required: true, min: 0 },

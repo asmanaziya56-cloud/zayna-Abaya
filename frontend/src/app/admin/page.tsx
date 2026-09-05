@@ -68,6 +68,36 @@ import { couponsApi, ICouponData } from '../../lib/api/coupons.api';
 import { IOrder, IProduct, ICategory, IUser, ISiteSettings, IHeroSlide, IHomepageSection, IFooterSettings } from '../../types';
 import { formatINR } from '../../lib/utils/currency';
 
+const LUXURY_COLOR_PRESETS = [
+  { name: 'Noir Black', hex: '#1A1A1A' },
+  { name: 'Emerald Green', hex: '#0B3B24' },
+  { name: 'Deep Wine', hex: '#4A0E17' },
+  { name: 'Sand Beige', hex: '#C2A382' },
+  { name: 'Slate Navy', hex: '#1B263B' },
+  { name: 'Rose Taupe', hex: '#8C5D63' },
+  { name: 'Mocha Brown', hex: '#4A3728' },
+  { name: 'Olive Green', hex: '#3D4529' },
+  { name: 'Dusty Lilac', hex: '#7D6B7D' },
+  { name: 'Pearl White', hex: '#EAE6DF' },
+];
+
+function getColorHex(name?: string): string {
+  if (!name) return '#1A1A1A';
+  const clean = name.toLowerCase().trim();
+  const preset = LUXURY_COLOR_PRESETS.find(
+    (p) => p.name.toLowerCase() === clean || clean.includes(p.name.toLowerCase().split(' ')[0])
+  );
+  if (preset) return preset.hex;
+  if (clean.includes('black')) return '#1A1A1A';
+  if (clean.includes('green')) return '#0B3B24';
+  if (clean.includes('wine') || clean.includes('maroon') || clean.includes('burgundy')) return '#4A0E17';
+  if (clean.includes('beige') || clean.includes('cream')) return '#C2A382';
+  if (clean.includes('navy') || clean.includes('blue')) return '#1B263B';
+  if (clean.includes('rose') || clean.includes('pink')) return '#8C5D63';
+  if (clean.includes('white')) return '#EAE6DF';
+  return '#8E6E53';
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -387,17 +417,57 @@ export default function AdminDashboardPage() {
   const [prodDescription, setProdDescription] = useState('');
   const [prodFabricCare, setProdFabricCare] = useState('Pure Korean Nidha & Silk blend. Dry clean or delicate hand wash cold.');
   const [prodDeliveryInfo, setProdDeliveryInfo] = useState('Dispatched within 24-48 hours. Delivered in 3-5 business days across India.');
-  const [prodColor, setProdColor] = useState('Noir Black');
+  const [prodColors, setProdColors] = useState<Array<{ name: string; hex: string }>>([
+    { name: 'Noir Black', hex: '#1A1A1A' }
+  ]);
+  const [defaultColorIndex, setDefaultColorIndex] = useState(0);
+  const [customColorName, setCustomColorName] = useState('');
+  const [customColorHex, setCustomColorHex] = useState('#1A1A1A');
   const [prodSizes, setProdSizes] = useState<string[]>(['52', '54', '56', '58', '60']);
   const [isBestseller, setIsBestseller] = useState(false);
   const [isFeatured, setIsFeatured] = useState(true);
   const [isNewArrival, setIsNewArrival] = useState(true);
   const [isOnSale, setIsOnSale] = useState(false);
 
-  // Direct Multiple Pictures File Upload State (NO URLs required!)
+  // Direct Multiple Pictures & Video Upload State
   const [selectedImageFiles, setSelectedImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [prodVideos, setProdVideos] = useState<string[]>([]);
+  const [prodVideoInputUrl, setProdVideoInputUrl] = useState('');
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Edit Product Modal State
+  const [editingProduct, setEditingProduct] = useState<IProduct | null>(null);
+  const [editProdName, setEditProdName] = useState('');
+  const [editProdCategory, setEditProdCategory] = useState('');
+  const [editProdPriceINR, setEditProdPriceINR] = useState('');
+  const [editProdSalePriceINR, setEditProdSalePriceINR] = useState('');
+  const [editProdStock, setEditProdStock] = useState('20');
+  const [editProdDescription, setEditProdDescription] = useState('');
+  const [editProdFabricCare, setEditProdFabricCare] = useState('');
+  const [editProdDeliveryInfo, setEditProdDeliveryInfo] = useState('');
+  const [editProdSizes, setEditProdSizes] = useState<string[]>(['52', '54', '56', '58', '60']);
+  const [editProdColors, setEditProdColors] = useState<Array<{ name: string; hex: string }>>([
+    { name: 'Noir Black', hex: '#1A1A1A' }
+  ]);
+  const [editDefaultColorIndex, setEditDefaultColorIndex] = useState(0);
+  const [editCustomColorName, setEditCustomColorName] = useState('');
+  const [editCustomColorHex, setEditCustomColorHex] = useState('#1A1A1A');
+  const [editIsBestseller, setEditIsBestseller] = useState(false);
+  const [editIsFeatured, setEditIsFeatured] = useState(false);
+  const [editIsNewArrival, setEditIsNewArrival] = useState(false);
+  const [editIsOnSale, setEditIsOnSale] = useState(false);
+  const [editImages, setEditImages] = useState<string[]>([]);
+  const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
+  const [editProdVideos, setEditProdVideos] = useState<string[]>([]);
+  const [editProdVideoInputUrl, setEditProdVideoInputUrl] = useState('');
+  const [editUploadingVideo, setEditUploadingVideo] = useState(false);
+  const [savingEditProduct, setSavingEditProduct] = useState(false);
+  const [editFormError, setEditFormError] = useState('');
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const editVideoFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isAdmin) {
@@ -1360,6 +1430,122 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Instagram Lookbook Studio Dynamic Post Helpers
+  const handleAddInstagramPost = () => {
+    setInstagramPosts((prev) => [
+      ...prev,
+      {
+        imageUrl: '',
+        caption: '',
+        postUrl: ''
+      }
+    ]);
+  };
+
+  const handleRemoveInstagramPost = (indexToRemove: number) => {
+    if (instagramPosts.length <= 1) {
+      alert('At least one lookbook entry must remain in your journal.');
+      return;
+    }
+    setInstagramPosts((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleMoveInstagramPost = (index: number, direction: 'up' | 'down') => {
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= instagramPosts.length) return;
+    const reordered = [...instagramPosts];
+    const temp = reordered[index];
+    reordered[index] = reordered[target];
+    reordered[target] = temp;
+    setInstagramPosts(reordered);
+  };
+
+  // Product Video Helpers for Add Product
+  const handleAddVideoUrl = () => {
+    const trimmed = prodVideoInputUrl.trim();
+    if (!trimmed) return;
+    if (prodVideos.includes(trimmed)) {
+      alert('Video URL is already added.');
+      return;
+    }
+    setProdVideos((prev) => [...prev, trimmed]);
+    setProdVideoInputUrl('');
+  };
+
+  const handleRemoveVideo = (indexToRemove: number) => {
+    setProdVideos((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleVideoFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Video file exceeds 50MB limit. Please choose a smaller video or enter a cloud video URL.');
+      return;
+    }
+    setUploadingVideo(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setProdVideos((prev) => [...prev, reader.result as string]);
+        }
+        setUploadingVideo(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setUploadingVideo(false);
+      alert('Failed to read video file.');
+    }
+    if (videoFileInputRef.current) {
+      videoFileInputRef.current.value = '';
+    }
+  };
+
+  // Product Video Helpers for Edit Product
+  const handleEditAddVideoUrl = () => {
+    const trimmed = editProdVideoInputUrl.trim();
+    if (!trimmed) return;
+    if (editProdVideos.includes(trimmed)) {
+      alert('Video URL is already added.');
+      return;
+    }
+    setEditProdVideos((prev) => [...prev, trimmed]);
+    setEditProdVideoInputUrl('');
+  };
+
+  const handleEditRemoveVideo = (indexToRemove: number) => {
+    setEditProdVideos((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleEditVideoFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (file.size > 50 * 1024 * 1024) {
+      alert('Video file exceeds 50MB limit. Please choose a smaller video or enter a cloud video URL.');
+      return;
+    }
+    setEditUploadingVideo(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setEditProdVideos((prev) => [...prev, reader.result as string]);
+        }
+        setEditUploadingVideo(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setEditUploadingVideo(false);
+      alert('Failed to read video file.');
+    }
+    if (editVideoFileInputRef.current) {
+      editVideoFileInputRef.current.value = '';
+    }
+  };
+
   const handleOpenEditCategory = (cat: ICategory) => {
     setEditingCategory(cat);
     setCatName(cat.name);
@@ -1489,28 +1675,44 @@ export default function AdminDashboardPage() {
 
       const skuPrefix = 'ZA-' + prodName.substring(0, 3).toUpperCase() + '-' + Math.floor(100 + Math.random() * 900);
 
-      // Generate variants for selected sizes
-      const variants = prodSizes.map((sz) => ({
-        size: sz,
-        color: prodColor || 'Noir Black',
-        sku: `${skuPrefix}-${sz}`,
-        price: basePricePaise,
-        salePrice: salePricePaise,
-        stock: Math.max(1, Math.floor(initialStock / prodSizes.length))
-      }));
+      // Sort colors with radio-selected default color first
+      const sortedColors = [
+        prodColors[defaultColorIndex] || prodColors[0] || { name: 'Noir Black', hex: '#1A1A1A' },
+        ...prodColors.filter((_, idx) => idx !== defaultColorIndex)
+      ];
+
+      // Generate variants for selected sizes × selected colors
+      const variants: any[] = [];
+      const totalVariantsCount = Math.max(1, sortedColors.length * prodSizes.length);
+      const perVariantStock = Math.max(1, Math.floor(initialStock / totalVariantsCount));
+
+      for (const colorItem of sortedColors) {
+        const colorClean = colorItem.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'BLK';
+        for (const sz of prodSizes) {
+          variants.push({
+            size: sz,
+            color: colorItem.name,
+            sku: `${skuPrefix}-${colorClean}-${sz}`,
+            price: basePricePaise,
+            salePrice: salePricePaise,
+            stock: perVariantStock
+          });
+        }
+      }
 
       await productsApi.createProduct({
         name: prodName.trim(),
         slug,
         description: prodDescription.trim() || `${prodName}. Hand-tailored luxury modest silhouette from Zayna Abaya atelier.`,
         images: finalImageUrls,
+        videos: prodVideos,
         variants,
         sku: skuPrefix,
         price: basePricePaise,
         salePrice: salePricePaise,
         stock: initialStock,
         category: prodCategory as any,
-        tags: ['Abaya', 'Modest', prodColor, 'Luxury'].filter(Boolean),
+        tags: ['Abaya', 'Modest', ...sortedColors.map((c) => c.name), 'Luxury'].filter(Boolean),
         flags: {
           isBestseller,
           isFeatured,
@@ -1529,6 +1731,11 @@ export default function AdminDashboardPage() {
       setIsOnSale(false);
       setSelectedImageFiles([]);
       setImagePreviews([]);
+      setProdVideos([]);
+      setProdVideoInputUrl('');
+      setProdColors([{ name: 'Noir Black', hex: '#1A1A1A' }]);
+      setDefaultColorIndex(0);
+      setCustomColorName('');
       setIsAddProductOpen(false);
 
       // Reload products table
@@ -1540,6 +1747,47 @@ export default function AdminDashboardPage() {
     } finally {
       setCreatingProduct(false);
     }
+  };
+
+  // Color Manager Helpers for Add Product
+  const handleAddPresetColor = (preset: { name: string; hex: string }) => {
+    if (!prodColors.some((c) => c.name.toLowerCase() === preset.name.toLowerCase())) {
+      setProdColors((prev) => [...prev, preset]);
+    }
+  };
+
+  const handleAddCustomColor = () => {
+    const trimmed = customColorName.trim();
+    if (!trimmed) return;
+    if (prodColors.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) {
+      alert('This color is already added');
+      return;
+    }
+    setProdColors((prev) => [...prev, { name: trimmed, hex: customColorHex || '#1A1A1A' }]);
+    setCustomColorName('');
+  };
+
+  const handleRemoveColor = (indexToRemove: number) => {
+    if (prodColors.length <= 1) {
+      alert('At least one color must remain for the creation');
+      return;
+    }
+    setProdColors((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    if (defaultColorIndex >= indexToRemove && defaultColorIndex > 0) {
+      setDefaultColorIndex((prev) => prev - 1);
+    }
+  };
+
+  const handleMoveColor = (index: number, direction: 'up' | 'down') => {
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= prodColors.length) return;
+    const reordered = [...prodColors];
+    const item = reordered[index];
+    reordered[index] = reordered[target];
+    reordered[target] = item;
+    setProdColors(reordered);
+    if (defaultColorIndex === index) setDefaultColorIndex(target);
+    else if (defaultColorIndex === target) setDefaultColorIndex(index);
   };
 
   // Toggle Sale status on product directly
@@ -1570,6 +1818,232 @@ export default function AdminDashboardPage() {
       } catch (err: any) {
         alert(err.response?.data?.error?.message || 'Failed to delete creation');
       }
+    }
+  };
+
+  // Open Edit Product Modal
+  const handleOpenEditProduct = (p: IProduct) => {
+    setEditingProduct(p);
+    setEditProdName(p.name || '');
+    setEditProdCategory(p.category?._id || (p.category as any) || '');
+    setEditProdPriceINR(p.price ? (p.price / 100).toString() : '');
+    setEditProdSalePriceINR(p.salePrice ? (p.salePrice / 100).toString() : '');
+    setEditProdStock(p.stock ? p.stock.toString() : '20');
+    setEditProdDescription(p.description || '');
+    setEditProdFabricCare(p.fabricCare || 'Pure Korean Nidha & Silk blend. Dry clean or delicate hand wash cold.');
+    setEditProdDeliveryInfo(p.deliveryInfo || 'Dispatched within 24-48 hours. Delivered in 3-5 business days across India.');
+
+    const existingSizes = Array.from(new Set(p.variants?.map((v) => v.size).filter(Boolean))) as string[];
+    setEditProdSizes(existingSizes.length > 0 ? existingSizes : ['52', '54', '56', '58', '60']);
+
+    const existingColors = Array.from(new Set(p.variants?.map((v) => v.color).filter(Boolean))) as string[];
+    if (existingColors.length > 0) {
+      setEditProdColors(existingColors.map((c) => ({ name: c, hex: getColorHex(c) })));
+    } else {
+      setEditProdColors([{ name: 'Noir Black', hex: '#1A1A1A' }]);
+    }
+    setEditDefaultColorIndex(0);
+    setEditCustomColorName('');
+    setEditCustomColorHex('#1A1A1A');
+
+    setEditIsBestseller(!!p.flags?.isBestseller);
+    setEditIsFeatured(!!p.flags?.isFeatured);
+    setEditIsNewArrival(!!p.flags?.isNewArrival);
+    setEditIsOnSale(!!p.flags?.isOnSale);
+    setEditImages(p.images || []);
+    setEditImagePreviews([]);
+    setEditProdVideos(p.videos || []);
+    setEditProdVideoInputUrl('');
+    setEditFormError('');
+  };
+
+  const handleCloseEditProduct = () => {
+    setEditingProduct(null);
+    setEditFormError('');
+  };
+
+  const handleEditAddPresetColor = (preset: { name: string; hex: string }) => {
+    if (!editProdColors.some((c) => c.name.toLowerCase() === preset.name.toLowerCase())) {
+      setEditProdColors((prev) => [...prev, preset]);
+    }
+  };
+
+  const handleEditAddCustomColor = () => {
+    const trimmed = editCustomColorName.trim();
+    if (!trimmed) return;
+    if (editProdColors.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) {
+      alert('This color is already added');
+      return;
+    }
+    setEditProdColors((prev) => [...prev, { name: trimmed, hex: editCustomColorHex || '#1A1A1A' }]);
+    setEditCustomColorName('');
+  };
+
+  const handleEditRemoveColor = (indexToRemove: number) => {
+    if (editProdColors.length <= 1) {
+      alert('At least one color must remain for the creation');
+      return;
+    }
+    setEditProdColors((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    if (editDefaultColorIndex >= indexToRemove && editDefaultColorIndex > 0) {
+      setEditDefaultColorIndex((prev) => prev - 1);
+    }
+  };
+
+  const handleEditMoveColor = (index: number, direction: 'up' | 'down') => {
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= editProdColors.length) return;
+    const reordered = [...editProdColors];
+    const item = reordered[index];
+    reordered[index] = reordered[target];
+    reordered[target] = item;
+    setEditProdColors(reordered);
+    if (editDefaultColorIndex === index) setEditDefaultColorIndex(target);
+    else if (editDefaultColorIndex === target) setEditDefaultColorIndex(index);
+  };
+
+  const toggleEditSizeSelection = (size: string) => {
+    setEditProdSizes((prev) =>
+      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
+    );
+  };
+
+  const handleEditPicturesSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const fileList = Array.from(files);
+    for (const file of fileList) {
+      try {
+        const compressedUrl = await compressImageFile(file, 1600, 0.82);
+        setEditImagePreviews((prev) => [...prev, compressedUrl]);
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            setEditImagePreviews((prev) => [...prev, reader.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveEditNewPicture = (indexToRemove: number) => {
+    setEditImagePreviews((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleRemoveExistingEditPicture = (indexToRemove: number) => {
+    setEditImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleSaveEditProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    setEditFormError('');
+
+    if (!editProdName.trim()) {
+      setEditFormError('Please provide a product title');
+      return;
+    }
+
+    const basePricePaise = Math.round(parseFloat(editProdPriceINR) * 100);
+    if (isNaN(basePricePaise) || basePricePaise <= 0) {
+      setEditFormError('Please provide a valid base price in ₹');
+      return;
+    }
+
+    const salePricePaise = editProdSalePriceINR ? Math.round(parseFloat(editProdSalePriceINR) * 100) : undefined;
+    const initialStock = parseInt(editProdStock, 10) || 10;
+
+    if (editProdSizes.length === 0) {
+      setEditFormError('Please select at least one size');
+      return;
+    }
+
+    if (editProdColors.length === 0) {
+      setEditFormError('Please add at least one color');
+      return;
+    }
+
+    setSavingEditProduct(true);
+
+    try {
+      let allImages = [...editImages];
+      if (editImagePreviews.length > 0) {
+        try {
+          const uploadedUrls = await productsApi.uploadImages(editImagePreviews);
+          allImages = [...allImages, ...uploadedUrls];
+        } catch (uploadErr) {
+          allImages = [...allImages, ...editImagePreviews];
+        }
+      }
+
+      if (allImages.length === 0) {
+        allImages = ['https://images.unsplash.com/photo-1594938298603-c8148c4dae35?q=80&w=1000&auto=format&fit=crop'];
+      }
+
+      // Sort colors with radio-selected default color first
+      const sortedColors = [
+        editProdColors[editDefaultColorIndex] || editProdColors[0],
+        ...editProdColors.filter((_, idx) => idx !== editDefaultColorIndex)
+      ];
+
+      const skuPrefix = editingProduct.sku || ('ZA-' + editProdName.substring(0, 3).toUpperCase() + '-' + Math.floor(100 + Math.random() * 900));
+
+      const totalVariantsCount = Math.max(1, sortedColors.length * editProdSizes.length);
+      const perVariantStock = Math.max(1, Math.floor(initialStock / totalVariantsCount));
+      const variants: any[] = [];
+
+      for (const colorItem of sortedColors) {
+        const colorClean = colorItem.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'BLK';
+        for (const sz of editProdSizes) {
+          const existingVar = editingProduct.variants?.find(
+            (v) => v.size === sz && v.color?.toLowerCase() === colorItem.name.toLowerCase()
+          );
+          variants.push({
+            ...(existingVar?._id ? { _id: existingVar._id } : {}),
+            size: sz,
+            color: colorItem.name,
+            sku: existingVar?.sku || `${skuPrefix}-${colorClean}-${sz}`,
+            price: basePricePaise,
+            salePrice: salePricePaise,
+            stock: existingVar?.stock ?? perVariantStock
+          });
+        }
+      }
+
+      await productsApi.updateProduct(editingProduct._id, {
+        name: editProdName.trim(),
+        description: editProdDescription.trim(),
+        category: editProdCategory as any,
+        price: basePricePaise,
+        salePrice: salePricePaise,
+        stock: initialStock,
+        variants,
+        images: allImages,
+        videos: editProdVideos,
+        fabricCare: editProdFabricCare,
+        deliveryInfo: editProdDeliveryInfo,
+        tags: ['Abaya', 'Modest', ...sortedColors.map((c) => c.name), 'Luxury'].filter(Boolean),
+        flags: {
+          isBestseller: editIsBestseller,
+          isFeatured: editIsFeatured,
+          isNewArrival: editIsNewArrival,
+          isOnSale: editIsOnSale
+        }
+      });
+
+      setEditingProduct(null);
+      await loadData();
+      alert('✨ Creation updated successfully in Zayna catalog!');
+    } catch (err: any) {
+      console.error('Failed to update product:', err);
+      setEditFormError(err.response?.data?.error?.message || 'Failed to update product. Please check your inputs.');
+    } finally {
+      setSavingEditProduct(false);
     }
   };
 
@@ -1869,7 +2343,8 @@ export default function AdminDashboardPage() {
                       <th className="py-3 px-4">Base Price</th>
                       <th className="py-3 px-4">Sale Price</th>
                       <th className="py-3 px-4">Total Stock</th>
-                      <th className="py-3 px-4">Variants</th>
+                      <th className="py-3 px-4">Colors</th>
+                      <th className="py-3 px-4">Sizes</th>
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -1877,6 +2352,8 @@ export default function AdminDashboardPage() {
                     {products.map((p) => {
                       const thumb = p.images?.[0] || 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?q=80&w=300&auto=format&fit=crop';
                       const onSale = !!p.flags?.isOnSale || (!!p.salePrice && p.salePrice < p.price);
+                      const uniqueSizes = Array.from(new Set(p.variants?.map((v) => v.size).filter(Boolean))) as string[];
+                      const uniqueColors = Array.from(new Set(p.variants?.map((v) => v.color).filter(Boolean))) as string[];
                       return (
                         <tr key={p._id} className="hover:bg-brand-sand/20 transition-colors">
                           <td className="py-3 px-4">
@@ -1911,10 +2388,43 @@ export default function AdminDashboardPage() {
                               {p.stock} units
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-[11px] text-brand-noir/70">
-                            {p.variants?.map((v) => v.size).join(', ') || 'Standard'}
+                          <td className="py-3 px-4">
+                            <div className="flex flex-wrap gap-1 items-center max-w-[150px]">
+                              {uniqueColors.length > 0 ? (
+                                uniqueColors.map((cName, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-brand-sand/60 text-brand-noir border border-brand-border/60"
+                                    title={cName}
+                                  >
+                                    <span
+                                      className="w-2 h-2 rounded-full border border-black/20 shrink-0"
+                                      style={{ backgroundColor: getColorHex(cName) }}
+                                    />
+                                    <span className="truncate max-w-[70px]">{cName}</span>
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-brand-sand/60 text-brand-noir border border-brand-border/60">
+                                  <span className="w-2 h-2 rounded-full bg-[#1A1A1A] shrink-0" />
+                                  <span>Noir Black</span>
+                                </span>
+                              )}
+                            </div>
                           </td>
-                          <td className="py-3 px-4 text-right space-x-2">
+                          <td className="py-3 px-4 text-[11px] text-brand-noir/70">
+                            {uniqueSizes.join(', ') || 'Standard'}
+                          </td>
+                          <td className="py-3 px-4 text-right space-x-2 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditProduct(p)}
+                              className="px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-all inline-flex items-center gap-1 cursor-pointer bg-brand-sand/70 text-brand-noir hover:bg-brand-mocha hover:text-white border border-brand-border/80"
+                              title="Edit creation details, colors, and stock"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleToggleProductSale(p)}
@@ -5118,17 +5628,28 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                {/* 4 Instagram Lookbook Photo Cards */}
+                {/* Instagram Lookbook Photo Cards (Unlimited Dynamic Posts) */}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-brand-sand/20 p-4 rounded-xl border border-brand-border">
                     <div>
-                      <h4 className="font-serif text-sm font-semibold text-brand-noir">
-                        Seasonal Lookbook Gallery Photos & Direct Links (4 Grid Posts)
+                      <h4 className="font-serif text-sm font-semibold text-brand-noir flex items-center gap-2">
+                        <span>Seasonal Lookbook Gallery Photos & Direct Links</span>
+                        <span className="bg-brand-mocha text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          {instagramPosts.length} Active Posts
+                        </span>
                       </h4>
-                      <p className="text-[11px] text-brand-noir/60">
-                        Visitors see these 4 curated photos on your homepage. Clicking any photo opens its destination link.
+                      <p className="text-[11px] text-brand-noir/60 mt-0.5">
+                        Add as many Instagram lookbook entries as you like. Upload photos, set hover captions, reorder sequence, and configure direct click links.
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleAddInstagramPost}
+                      className="inline-flex items-center space-x-1.5 px-4 py-2 bg-brand-mocha hover:bg-brand-mocha-dark text-white rounded text-xs font-semibold uppercase tracking-wider shadow-sm transition-all cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Lookbook Post</span>
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -5142,9 +5663,35 @@ export default function AdminDashboardPage() {
                             <Camera className="w-3.5 h-3.5 text-brand-gold" />
                             <span>Lookbook Photo #{pIdx + 1}</span>
                           </span>
-                          <span className="text-[10px] text-brand-noir/50 font-mono">
-                            Slot {pIdx + 1} of 4
-                          </span>
+                          <div className="flex items-center space-x-1">
+                            <button
+                              type="button"
+                              disabled={pIdx === 0}
+                              onClick={() => handleMoveInstagramPost(pIdx, 'up')}
+                              className="p-1 text-brand-noir/50 hover:text-brand-noir disabled:opacity-20 rounded cursor-pointer"
+                              title="Move earlier in order"
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={pIdx === instagramPosts.length - 1}
+                              onClick={() => handleMoveInstagramPost(pIdx, 'down')}
+                              className="p-1 text-brand-noir/50 hover:text-brand-noir disabled:opacity-20 rounded cursor-pointer"
+                              title="Move later in order"
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={instagramPosts.length <= 1}
+                              onClick={() => handleRemoveInstagramPost(pIdx)}
+                              className="p-1 text-red-500 hover:text-red-700 disabled:opacity-20 rounded cursor-pointer ml-1"
+                              title="Delete post slot"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         {/* Image Preview & Upload */}
@@ -7001,6 +7548,120 @@ export default function AdminDashboardPage() {
                 )}
               </div>
 
+              {/* INSTAGRAM-STYLE PRODUCT VIDEOS (REELS / MP4 / MOV) */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Film className="w-4 h-4 text-brand-mocha" />
+                    <label className="block text-xs font-semibold text-brand-noir">
+                      Product Videos & Instagram Reels ({prodVideos.length})
+                    </label>
+                  </div>
+                  <span className="text-[10px] text-brand-noir/60 uppercase tracking-wider font-medium">
+                    Auto-plays like Instagram Reel
+                  </span>
+                </div>
+
+                {/* Upload or Add URL controls */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Direct Video File Upload */}
+                  <div
+                    onClick={() => videoFileInputRef.current?.click()}
+                    className="border-2 border-dashed border-brand-border hover:border-brand-mocha bg-brand-sand/20 hover:bg-brand-sand/40 rounded-xl p-4 text-center cursor-pointer transition-colors group flex flex-col items-center justify-center space-y-1.5"
+                  >
+                    <input
+                      ref={videoFileInputRef}
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime,video/*"
+                      onChange={handleVideoFileSelected}
+                      className="hidden"
+                    />
+                    <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-brand-mocha group-hover:scale-110 transition-transform">
+                      {uploadingVideo ? (
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Film className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-brand-noir">
+                        {uploadingVideo ? 'Processing video...' : 'Upload Video File'}
+                      </p>
+                      <p className="text-[10px] text-brand-noir/60">
+                        MP4, MOV, WebM (up to 50MB)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Video URL Input */}
+                  <div className="border border-brand-border bg-white rounded-xl p-4 flex flex-col justify-center space-y-2">
+                    <label className="block text-[11px] font-semibold text-brand-noir">
+                      Or Add Video Link / Cloud URL
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={prodVideoInputUrl}
+                        onChange={(e) => setProdVideoInputUrl(e.target.value)}
+                        placeholder="https://.../video.mp4"
+                        className="flex-1 bg-brand-sand/30 border border-brand-border rounded p-2 text-xs focus:outline-none focus:border-brand-mocha"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddVideoUrl}
+                        className="px-3 py-2 bg-brand-noir text-white text-xs font-semibold rounded hover:bg-brand-mocha transition-colors flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-brand-noir/50">
+                      Supports direct MP4 links, CDN videos, Cloudinary, etc.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Video Previews */}
+                {prodVideos.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                    {prodVideos.map((vidUrl, index) => (
+                      <div
+                        key={index}
+                        className="relative aspect-[3/4] rounded-lg overflow-hidden bg-black border-2 border-brand-mocha/40 group shadow-sm"
+                      >
+                        <video
+                          src={vidUrl}
+                          muted
+                          loop
+                          playsInline
+                          onMouseEnter={(e) => e.currentTarget.play().catch(() => {})}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.pause();
+                            e.currentTarget.currentTime = 0;
+                          }}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-1.5 left-1.5 bg-black/70 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Play className="w-2.5 h-2.5 fill-white" />
+                          Reel {index + 1}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVideo(index)}
+                          className="absolute top-1.5 right-1.5 p-1 bg-red-600 text-white rounded-full opacity-90 hover:opacity-100 hover:scale-110 transition-all shadow"
+                          title="Remove video"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="absolute bottom-1.5 inset-x-1.5 text-center bg-black/60 backdrop-blur-sm py-1 rounded text-[9px] text-white/80">
+                          Hover to preview
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Description */}
               <div>
                 <label className="block text-xs font-semibold text-brand-noir mb-1">
@@ -7045,17 +7706,152 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-brand-noir mb-1">
-                    Color Name
-                  </label>
-                  <input
-                    type="text"
-                    value={prodColor}
-                    onChange={(e) => setProdColor(e.target.value)}
-                    placeholder="e.g. Noir Black, Emerald Green, Sand Beige"
-                    className="w-full bg-brand-sand/30 border border-brand-border rounded p-2.5 text-xs focus:outline-none focus:border-brand-mocha"
-                  />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-brand-noir">
+                      Product Colors ({prodColors.length})
+                    </label>
+                    <span className="text-[10px] text-brand-noir/60">
+                      Select radio for Default / Primary Color
+                    </span>
+                  </div>
+
+                  {/* List of Added Colors with Radio Selector, Reorder, and Delete */}
+                  <div className="space-y-2 border border-brand-border/80 rounded-lg p-3 bg-brand-sand/20">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {prodColors.map((colorItem, idx) => {
+                        const isDefault = defaultColorIndex === idx;
+                        return (
+                          <div
+                            key={idx}
+                            className={`flex items-center justify-between p-2 rounded-md border text-xs transition-all ${
+                              isDefault
+                                ? 'bg-white border-brand-mocha shadow-sm ring-1 ring-brand-mocha/40'
+                                : 'bg-white/80 border-brand-border hover:border-brand-border/90'
+                            }`}
+                          >
+                            <label className="flex items-center gap-2 cursor-pointer select-none flex-1 min-w-0">
+                              <input
+                                type="radio"
+                                name="add-default-color-radio"
+                                checked={isDefault}
+                                onChange={() => setDefaultColorIndex(idx)}
+                                className="w-3.5 h-3.5 text-brand-mocha focus:ring-brand-mocha accent-[#8E6E53] cursor-pointer shrink-0"
+                              />
+                              <span
+                                className="w-4 h-4 rounded-full border border-black/20 shadow-inner shrink-0"
+                                style={{ backgroundColor: colorItem.hex || getColorHex(colorItem.name) }}
+                              />
+                              <span className="font-medium text-brand-noir truncate max-w-[110px]">
+                                {colorItem.name}
+                              </span>
+                              {isDefault && (
+                                <span className="text-[9px] font-bold uppercase bg-brand-mocha text-white px-1.5 py-0.5 rounded tracking-wide shrink-0">
+                                  Default
+                                </span>
+                              )}
+                            </label>
+
+                            <div className="flex items-center space-x-1 shrink-0 ml-1">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveColor(idx, 'up')}
+                                className="p-1 text-brand-noir/50 hover:text-brand-noir disabled:opacity-20 rounded cursor-pointer"
+                                title="Move earlier in order"
+                              >
+                                <ArrowUp className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === prodColors.length - 1}
+                                onClick={() => handleMoveColor(idx, 'down')}
+                                className="p-1 text-brand-noir/50 hover:text-brand-noir disabled:opacity-20 rounded cursor-pointer"
+                                title="Move later in order"
+                              >
+                                <ArrowDown className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={prodColors.length <= 1}
+                                onClick={() => handleRemoveColor(idx)}
+                                className="p-1 text-red-500 hover:text-red-700 disabled:opacity-20 rounded cursor-pointer"
+                                title="Remove color"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Quick Add Luxury Preset Colors */}
+                    <div className="pt-2 border-t border-brand-border/60">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-brand-noir/60 block mb-1.5">
+                        Quick Add Preset Palettes:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {LUXURY_COLOR_PRESETS.map((preset) => {
+                          const isAlreadyAdded = prodColors.some(
+                            (c) => c.name.toLowerCase() === preset.name.toLowerCase()
+                          );
+                          return (
+                            <button
+                              key={preset.name}
+                              type="button"
+                              disabled={isAlreadyAdded}
+                              onClick={() => handleAddPresetColor(preset)}
+                              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium transition-all ${
+                                isAlreadyAdded
+                                  ? 'opacity-40 bg-brand-sand/40 text-brand-noir/50 cursor-not-allowed'
+                                  : 'bg-white border border-brand-border hover:border-brand-mocha hover:bg-brand-sand/50 text-brand-noir cursor-pointer'
+                              }`}
+                            >
+                              <span
+                                className="w-2.5 h-2.5 rounded-full border border-black/20"
+                                style={{ backgroundColor: preset.hex }}
+                              />
+                              <span>{preset.name}</span>
+                              {!isAlreadyAdded && <Plus className="w-2.5 h-2.5 text-brand-mocha" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Custom Color Adder */}
+                    <div className="pt-2 border-t border-brand-border/60 flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={customColorHex}
+                        onChange={(e) => setCustomColorHex(e.target.value)}
+                        className="w-8 h-8 rounded border border-brand-border cursor-pointer p-0.5 bg-white"
+                        title="Pick custom hex color"
+                      />
+                      <input
+                        type="text"
+                        value={customColorName}
+                        onChange={(e) => setCustomColorName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomColor();
+                          }
+                        }}
+                        placeholder="Add custom color name (e.g. Sage Green)"
+                        className="flex-1 bg-white border border-brand-border rounded p-2 text-xs focus:outline-none focus:border-brand-mocha"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomColor}
+                        className="px-3 py-2 bg-brand-mocha hover:bg-brand-mocha-dark text-white rounded text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -7149,6 +7945,587 @@ export default function AdminDashboardPage() {
                   className="px-6 py-2.5 bg-brand-mocha hover:bg-brand-mocha-dark text-white rounded text-xs font-semibold uppercase tracking-wider shadow-md transition-all disabled:opacity-50"
                 >
                   {creatingProduct ? 'Uploading Pictures & Saving...' : 'Save Creation to Catalog'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT CREATION DETAILS & COLORS */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl border border-brand-border shadow-2xl max-w-3xl w-full my-8 p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto animate-fade-in text-brand-noir">
+            <div className="flex items-center justify-between pb-4 border-b border-brand-border">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-mocha">
+                  Modify Atelier Creation
+                </span>
+                <h2 className="font-serif text-2xl text-brand-noir">Edit Product & Color Variants</h2>
+              </div>
+              <button
+                onClick={handleCloseEditProduct}
+                className="p-1.5 text-brand-noir/60 hover:text-brand-noir rounded-md cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editFormError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded">
+                {editFormError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditProduct} className="space-y-6">
+              {/* Basic Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-brand-noir mb-1">
+                    Creation Title / Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editProdName}
+                    onChange={(e) => setEditProdName(e.target.value)}
+                    placeholder="e.g. Zahara Embroidered Silk Abaya"
+                    className="w-full bg-brand-sand/30 border border-brand-border rounded p-2.5 text-xs focus:outline-none focus:border-brand-mocha"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-brand-noir mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={editProdCategory}
+                    onChange={(e) => setEditProdCategory(e.target.value)}
+                    className="w-full bg-brand-sand/30 border border-brand-border rounded p-2.5 text-xs focus:outline-none focus:border-brand-mocha"
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Pricing & Stock */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-brand-noir mb-1">
+                    Base Price (₹ INR) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={editProdPriceINR}
+                    onChange={(e) => setEditProdPriceINR(e.target.value)}
+                    placeholder="e.g. 5499"
+                    className="w-full bg-brand-sand/30 border border-brand-border rounded p-2.5 text-xs focus:outline-none focus:border-brand-mocha"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-brand-noir mb-1">
+                    Sale Price (₹ INR) (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editProdSalePriceINR}
+                    onChange={(e) => setEditProdSalePriceINR(e.target.value)}
+                    placeholder="e.g. 4499"
+                    className="w-full bg-brand-sand/30 border border-brand-border rounded p-2.5 text-xs focus:outline-none focus:border-brand-mocha"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-brand-noir mb-1">
+                    Total Inventory Stock
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={editProdStock}
+                    onChange={(e) => setEditProdStock(e.target.value)}
+                    placeholder="e.g. 20"
+                    className="w-full bg-brand-sand/30 border border-brand-border rounded p-2.5 text-xs focus:outline-none focus:border-brand-mocha"
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-xs font-semibold text-brand-noir mb-1">
+                  Product Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={editProdDescription}
+                  onChange={(e) => setEditProdDescription(e.target.value)}
+                  placeholder="Describe the silhouette, embroidery, occasion, and fabric cut..."
+                  className="w-full bg-brand-sand/30 border border-brand-border rounded p-2.5 text-xs focus:outline-none focus:border-brand-mocha resize-none"
+                />
+              </div>
+
+              {/* Product Photos Management */}
+              <div className="space-y-3">
+                <label className="block text-xs font-semibold text-brand-noir">
+                  Product Photos ({editImages.length + editImagePreviews.length})
+                </label>
+
+                {/* Existing Images */}
+                {editImages.length > 0 && (
+                  <div>
+                    <span className="text-[10px] text-brand-noir/60 block mb-1">Current Photos:</span>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                      {editImages.map((imgUrl, idx) => (
+                        <div key={idx} className="relative aspect-[3/4] rounded-lg overflow-hidden border border-brand-border group">
+                          <Image src={imgUrl} alt={`Current ${idx + 1}`} fill unoptimized className="object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExistingEditPicture(idx)}
+                            className="absolute top-1 right-1 bg-red-600/90 text-white rounded p-1 opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+                            title="Remove picture"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Newly Added Images */}
+                {editImagePreviews.length > 0 && (
+                  <div>
+                    <span className="text-[10px] text-emerald-700 font-semibold block mb-1">New Photos to Add:</span>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                      {editImagePreviews.map((previewUrl, idx) => (
+                        <div key={idx} className="relative aspect-[3/4] rounded-lg overflow-hidden border-2 border-emerald-500 group">
+                          <Image src={previewUrl} alt={`New upload ${idx + 1}`} fill unoptimized className="object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveEditNewPicture(idx)}
+                            className="absolute top-1 right-1 bg-red-600/90 text-white rounded p-1 opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+                            title="Remove picture"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Button */}
+                <div>
+                  <input
+                    ref={editFileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleEditPicturesSelected}
+                    className="hidden"
+                    id="edit-file-upload-input"
+                  />
+                  <label
+                    htmlFor="edit-file-upload-input"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-brand-sand/60 hover:bg-brand-sand border border-brand-border rounded text-xs font-semibold text-brand-noir cursor-pointer transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload Additional Pictures</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* PRODUCT VIDEOS & INSTAGRAM REELS */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Film className="w-4 h-4 text-brand-mocha" />
+                    <label className="block text-xs font-semibold text-brand-noir">
+                      Product Videos & Reels ({editProdVideos.length})
+                    </label>
+                  </div>
+                  <span className="text-[10px] text-brand-noir/60 uppercase tracking-wider font-medium">
+                    Instagram Style Reel Playback
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Direct Video File Upload */}
+                  <div
+                    onClick={() => editVideoFileInputRef.current?.click()}
+                    className="border-2 border-dashed border-brand-border hover:border-brand-mocha bg-brand-sand/20 hover:bg-brand-sand/40 rounded-xl p-4 text-center cursor-pointer transition-colors group flex flex-col items-center justify-center space-y-1.5"
+                  >
+                    <input
+                      ref={editVideoFileInputRef}
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime,video/*"
+                      onChange={handleEditVideoFileSelected}
+                      className="hidden"
+                    />
+                    <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-brand-mocha group-hover:scale-110 transition-transform">
+                      {editUploadingVideo ? (
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Film className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-brand-noir">
+                        {editUploadingVideo ? 'Processing video...' : 'Upload Video File'}
+                      </p>
+                      <p className="text-[10px] text-brand-noir/60">
+                        MP4, MOV, WebM (up to 50MB)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Video URL Input */}
+                  <div className="border border-brand-border bg-white rounded-xl p-4 flex flex-col justify-center space-y-2">
+                    <label className="block text-[11px] font-semibold text-brand-noir">
+                      Or Add Video Link / Cloud URL
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={editProdVideoInputUrl}
+                        onChange={(e) => setEditProdVideoInputUrl(e.target.value)}
+                        placeholder="https://.../video.mp4"
+                        className="flex-1 bg-brand-sand/30 border border-brand-border rounded p-2 text-xs focus:outline-none focus:border-brand-mocha"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleEditAddVideoUrl}
+                        className="px-3 py-2 bg-brand-noir text-white text-xs font-semibold rounded hover:bg-brand-mocha transition-colors flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-brand-noir/50">
+                      Supports direct MP4 links, CDN videos, Cloudinary, etc.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Edit Videos Previews */}
+                {editProdVideos.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                    {editProdVideos.map((vidUrl, index) => (
+                      <div
+                        key={index}
+                        className="relative aspect-[3/4] rounded-lg overflow-hidden bg-black border-2 border-brand-mocha/40 group shadow-sm"
+                      >
+                        <video
+                          src={vidUrl}
+                          muted
+                          loop
+                          playsInline
+                          onMouseEnter={(e) => e.currentTarget.play().catch(() => {})}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.pause();
+                            e.currentTarget.currentTime = 0;
+                          }}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-1.5 left-1.5 bg-black/70 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Play className="w-2.5 h-2.5 fill-white" />
+                          Reel {index + 1}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleEditRemoveVideo(index)}
+                          className="absolute top-1.5 right-1.5 p-1 bg-red-600 text-white rounded-full opacity-90 hover:opacity-100 hover:scale-110 transition-all shadow"
+                          title="Remove video"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="absolute bottom-1.5 inset-x-1.5 text-center bg-black/60 backdrop-blur-sm py-1 rounded text-[9px] text-white/80">
+                          Hover to preview
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Lengths/Sizes and Multi-Color Selector */}
+              <div className="space-y-4 pt-2 border-t border-brand-border">
+                <div>
+                  <label className="block text-xs font-semibold text-brand-noir mb-2">
+                    Available Abaya Lengths / Sizes
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {['52', '54', '56', '58', '60'].map((sz) => {
+                      const isSelected = editProdSizes.includes(sz);
+                      return (
+                        <button
+                          type="button"
+                          key={sz}
+                          onClick={() => toggleEditSizeSelection(sz)}
+                          className={`w-10 h-8 rounded text-xs font-semibold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-brand-mocha text-white shadow-sm'
+                              : 'bg-brand-sand/60 text-brand-noir hover:bg-brand-border'
+                          }`}
+                        >
+                          {sz}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Color Manager for Edit */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-brand-noir">
+                      Product Colors ({editProdColors.length})
+                    </label>
+                    <span className="text-[10px] text-brand-noir/60">
+                      Select radio for Default / Primary Color
+                    </span>
+                  </div>
+
+                  {/* List of Added Colors */}
+                  <div className="space-y-2 border border-brand-border/80 rounded-lg p-3 bg-brand-sand/20">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {editProdColors.map((colorItem, idx) => {
+                        const isDefault = editDefaultColorIndex === idx;
+                        return (
+                          <div
+                            key={idx}
+                            className={`flex items-center justify-between p-2 rounded-md border text-xs transition-all ${
+                              isDefault
+                                ? 'bg-white border-brand-mocha shadow-sm ring-1 ring-brand-mocha/40'
+                                : 'bg-white/80 border-brand-border hover:border-brand-border/90'
+                            }`}
+                          >
+                            <label className="flex items-center gap-2 cursor-pointer select-none flex-1 min-w-0">
+                              <input
+                                type="radio"
+                                name="edit-default-color-radio"
+                                checked={isDefault}
+                                onChange={() => setEditDefaultColorIndex(idx)}
+                                className="w-3.5 h-3.5 text-brand-mocha focus:ring-brand-mocha accent-[#8E6E53] cursor-pointer shrink-0"
+                              />
+                              <span
+                                className="w-4 h-4 rounded-full border border-black/20 shadow-inner shrink-0"
+                                style={{ backgroundColor: colorItem.hex || getColorHex(colorItem.name) }}
+                              />
+                              <span className="font-medium text-brand-noir truncate max-w-[110px]">
+                                {colorItem.name}
+                              </span>
+                              {isDefault && (
+                                <span className="text-[9px] font-bold uppercase bg-brand-mocha text-white px-1.5 py-0.5 rounded tracking-wide shrink-0">
+                                  Default
+                                </span>
+                              )}
+                            </label>
+
+                            <div className="flex items-center space-x-1 shrink-0 ml-1">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleEditMoveColor(idx, 'up')}
+                                className="p-1 text-brand-noir/50 hover:text-brand-noir disabled:opacity-20 rounded cursor-pointer"
+                                title="Move earlier in order"
+                              >
+                                <ArrowUp className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === editProdColors.length - 1}
+                                onClick={() => handleEditMoveColor(idx, 'down')}
+                                className="p-1 text-brand-noir/50 hover:text-brand-noir disabled:opacity-20 rounded cursor-pointer"
+                                title="Move later in order"
+                              >
+                                <ArrowDown className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={editProdColors.length <= 1}
+                                onClick={() => handleEditRemoveColor(idx)}
+                                className="p-1 text-red-500 hover:text-red-700 disabled:opacity-20 rounded cursor-pointer"
+                                title="Remove color"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Quick Add Presets */}
+                    <div className="pt-2 border-t border-brand-border/60">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-brand-noir/60 block mb-1.5">
+                        Quick Add Preset Palettes:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {LUXURY_COLOR_PRESETS.map((preset) => {
+                          const isAlreadyAdded = editProdColors.some(
+                            (c) => c.name.toLowerCase() === preset.name.toLowerCase()
+                          );
+                          return (
+                            <button
+                              key={preset.name}
+                              type="button"
+                              disabled={isAlreadyAdded}
+                              onClick={() => handleEditAddPresetColor(preset)}
+                              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium transition-all ${
+                                isAlreadyAdded
+                                  ? 'opacity-40 bg-brand-sand/40 text-brand-noir/50 cursor-not-allowed'
+                                  : 'bg-white border border-brand-border hover:border-brand-mocha hover:bg-brand-sand/50 text-brand-noir cursor-pointer'
+                              }`}
+                            >
+                              <span
+                                className="w-2.5 h-2.5 rounded-full border border-black/20"
+                                style={{ backgroundColor: preset.hex }}
+                              />
+                              <span>{preset.name}</span>
+                              {!isAlreadyAdded && <Plus className="w-2.5 h-2.5 text-brand-mocha" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Custom Color Adder */}
+                    <div className="pt-2 border-t border-brand-border/60 flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={editCustomColorHex}
+                        onChange={(e) => setEditCustomColorHex(e.target.value)}
+                        className="w-8 h-8 rounded border border-brand-border cursor-pointer p-0.5 bg-white"
+                        title="Pick custom hex color"
+                      />
+                      <input
+                        type="text"
+                        value={editCustomColorName}
+                        onChange={(e) => setEditCustomColorName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleEditAddCustomColor();
+                          }
+                        }}
+                        placeholder="Add custom color name (e.g. Sage Green)"
+                        className="flex-1 bg-white border border-brand-border rounded p-2 text-xs focus:outline-none focus:border-brand-mocha"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleEditAddCustomColor}
+                        className="px-3 py-2 bg-brand-mocha hover:bg-brand-mocha-dark text-white rounded text-xs font-semibold uppercase tracking-wider inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Specifications: Fabric & Delivery */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-brand-noir mb-1">
+                    Fabric & Care Instructions
+                  </label>
+                  <input
+                    type="text"
+                    value={editProdFabricCare}
+                    onChange={(e) => setEditProdFabricCare(e.target.value)}
+                    placeholder="e.g. Pure Korean Nidha, hand wash cold"
+                    className="w-full bg-brand-sand/30 border border-brand-border rounded p-2.5 text-xs focus:outline-none focus:border-brand-mocha"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-brand-noir mb-1">
+                    Delivery Timeline Note
+                  </label>
+                  <input
+                    type="text"
+                    value={editProdDeliveryInfo}
+                    onChange={(e) => setEditProdDeliveryInfo(e.target.value)}
+                    placeholder="e.g. Dispatched in 24-48 hours across India"
+                    className="w-full bg-brand-sand/30 border border-brand-border rounded p-2.5 text-xs focus:outline-none focus:border-brand-mocha"
+                  />
+                </div>
+              </div>
+
+              {/* Merchandising Badges */}
+              <div className="flex flex-wrap items-center gap-4 pt-2 text-xs">
+                <label className="flex items-center space-x-2 cursor-pointer bg-red-50 px-3 py-1.5 rounded-lg border border-red-200">
+                  <input
+                    type="checkbox"
+                    checked={editIsOnSale}
+                    onChange={(e) => setEditIsOnSale(e.target.checked)}
+                    className="rounded text-red-600 focus:ring-red-600"
+                  />
+                  <span className="font-bold text-red-700 flex items-center gap-1">
+                    <Flame className="w-3.5 h-3.5 text-red-600" />
+                    <span>On Sale (Display SALE Badge)</span>
+                  </span>
+                </label>
+
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editIsBestseller}
+                    onChange={(e) => setEditIsBestseller(e.target.checked)}
+                    className="rounded text-brand-mocha focus:ring-brand-mocha"
+                  />
+                  <span>Mark as Bestseller</span>
+                </label>
+
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editIsFeatured}
+                    onChange={(e) => setEditIsFeatured(e.target.checked)}
+                    className="rounded text-brand-mocha focus:ring-brand-mocha"
+                  />
+                  <span>Feature on Homepage</span>
+                </label>
+
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editIsNewArrival}
+                    onChange={(e) => setEditIsNewArrival(e.target.checked)}
+                    className="rounded text-brand-mocha focus:ring-brand-mocha"
+                  />
+                  <span>New Arrival Badge</span>
+                </label>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end space-x-3 pt-6 border-t border-brand-border">
+                <button
+                  type="button"
+                  onClick={handleCloseEditProduct}
+                  className="px-5 py-2.5 border border-brand-border rounded text-xs font-semibold text-brand-noir hover:bg-brand-sand transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEditProduct}
+                  className="px-6 py-2.5 bg-brand-mocha hover:bg-brand-mocha-dark text-white rounded text-xs font-semibold uppercase tracking-wider shadow-md transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {savingEditProduct ? 'Updating Creation...' : 'Update & Save Creation'}
                 </button>
               </div>
             </form>

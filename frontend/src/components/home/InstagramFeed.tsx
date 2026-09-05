@@ -70,8 +70,8 @@ export function InstagramFeed({ posts }: InstagramFeedProps) {
           </a>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {items.slice(0, 4).map((post, idx) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+          {items.map((post, idx) => (
             <a
               key={post._id || idx}
               href={post.postUrl || instagramUrl}

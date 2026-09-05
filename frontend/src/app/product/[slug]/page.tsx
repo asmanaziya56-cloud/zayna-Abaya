@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -14,7 +14,12 @@ import {
   ArrowRight,
   Heart,
   Share2,
-  Check
+  Check,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Film
 } from 'lucide-react';
 import { productsApi } from '../../../lib/api/products.api';
 import { settingsApi } from '../../../lib/api/settings.api';
@@ -25,6 +30,48 @@ import { useWishlist } from '../../../components/providers/WishlistProvider';
 import { SizeGuideModal } from '../../../components/product/SizeGuideModal';
 import { ProductReviewsAndQuery } from '../../../components/product/ProductReviewsAndQuery';
 import { ProductCard } from '../../../components/shop/ProductCard';
+
+const COLOR_HEX_MAP: Record<string, string> = {
+  'noir black': '#1A1A1A',
+  'black': '#1A1A1A',
+  'emerald green': '#0B3B24',
+  'green': '#0B3B24',
+  'deep wine': '#4A0E17',
+  'maroon': '#4A0E17',
+  'burgundy': '#4A0E17',
+  'sand beige': '#C2A382',
+  'beige': '#C2A382',
+  'slate navy': '#1B263B',
+  'navy': '#1B263B',
+  'navy blue': '#1B263B',
+  'rose taupe': '#8C5D63',
+  'rose': '#8C5D63',
+  'mocha brown': '#4A3728',
+  'mocha': '#4A3728',
+  'brown': '#4A3728',
+  'olive green': '#3D4529',
+  'olive': '#3D4529',
+  'dusty lilac': '#7D6B7D',
+  'lilac': '#7D6B7D',
+  'pearl white': '#EAE6DF',
+  'white': '#FFFFFF',
+  'cream': '#FDFBF7',
+  'grey': '#6B7280',
+  'gray': '#6B7280',
+  'silver': '#CBD5E1',
+  'gold': '#D4AF37',
+  'champagne': '#F7E7CE',
+};
+
+function getColorHex(name?: string): string {
+  if (!name) return '#1A1A1A';
+  const clean = name.toLowerCase().trim();
+  if (COLOR_HEX_MAP[clean]) return COLOR_HEX_MAP[clean];
+  for (const [key, val] of Object.entries(COLOR_HEX_MAP)) {
+    if (clean.includes(key)) return val;
+  }
+  return '#8E6E53';
+}
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -38,8 +85,13 @@ export default function ProductDetailPage() {
   const [relatedProducts, setRelatedProducts] = useState<IProduct[]>([]);
   const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
+  const [isVideoMuted, setIsVideoMuted] = useState(true);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [selectedVariant, setSelectedVariant] = useState<IProductVariant | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string>('Noir Black');
+  const [selectedSize, setSelectedSize] = useState<string>('54');
   const [quantity, setQuantity] = useState(1);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
@@ -47,6 +99,69 @@ export default function ProductDetailPage() {
 
   // Accordion state
   const [openTab, setOpenTab] = useState<'fabric' | 'shipping' | 'packaging' | null>('fabric');
+
+  // Derive available colors and sizes across variants
+  const availableColors = React.useMemo(() => {
+    if (!product?.variants || product.variants.length === 0) return [];
+    const colors: string[] = [];
+    product.variants.forEach((v) => {
+      if (v.color && !colors.includes(v.color)) {
+        colors.push(v.color);
+      }
+    });
+    return colors;
+  }, [product]);
+
+  const availableSizes = React.useMemo(() => {
+    if (!product?.variants || product.variants.length === 0) return [];
+    const sizes: string[] = [];
+    product.variants.forEach((v) => {
+      if (v.size && !sizes.includes(v.size)) {
+        sizes.push(v.size);
+      }
+    });
+    return sizes;
+  }, [product]);
+
+  const handleSelectColor = (colorName: string) => {
+    setSelectedColor(colorName);
+    if (!product?.variants) return;
+    // Find matching variant with selected color and current size
+    const exactMatch = product.variants.find(
+      (v) => v.color?.toLowerCase() === colorName.toLowerCase() && v.size === selectedSize
+    );
+    if (exactMatch) {
+      setSelectedVariant(exactMatch);
+    } else {
+      // Fallback to first variant of this color
+      const colorMatch = product.variants.find(
+        (v) => v.color?.toLowerCase() === colorName.toLowerCase()
+      );
+      if (colorMatch) {
+        setSelectedVariant(colorMatch);
+        if (colorMatch.size) setSelectedSize(colorMatch.size);
+      }
+    }
+  };
+
+  const handleSelectSize = (sizeVal: string) => {
+    setSelectedSize(sizeVal);
+    if (!product?.variants) return;
+    // Find matching variant with selected size and current color
+    const exactMatch = product.variants.find(
+      (v) => v.size === sizeVal && v.color?.toLowerCase() === selectedColor.toLowerCase()
+    );
+    if (exactMatch) {
+      setSelectedVariant(exactMatch);
+    } else {
+      // Fallback to first variant of this size
+      const sizeMatch = product.variants.find((v) => v.size === sizeVal);
+      if (sizeMatch) {
+        setSelectedVariant(sizeMatch);
+        if (sizeMatch.color) setSelectedColor(sizeMatch.color);
+      }
+    }
+  };
 
   useEffect(() => {
     async function loadProduct() {
@@ -65,7 +180,10 @@ export default function ProductDetailPage() {
           const productData = (prod.value as any)?.product || prod.value;
           setProduct(productData);
           if (productData.variants && productData.variants.length > 0) {
-            setSelectedVariant(productData.variants[0]);
+            const first = productData.variants[0];
+            setSelectedVariant(first);
+            if (first.color) setSelectedColor(first.color);
+            if (first.size) setSelectedSize(first.size);
           }
           // Unblock main product view immediately
           setLoading(false);
@@ -135,9 +253,62 @@ export default function ProductDetailPage() {
   const currentPrice = selectedVariant?.salePrice || selectedVariant?.price || product.salePrice || product.price;
   const originalPrice = selectedVariant?.price || product.price;
   const discountPercent = calculateDiscountPercent(originalPrice, currentPrice);
-  const images = product.images?.length > 0 ? product.images : [
-    'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1200&auto=format&fit=crop'
-  ];
+  // Unified Media Items (Images + Instagram Reels / Videos)
+  const mediaItems: Array<{ type: 'image' | 'video'; url: string }> = React.useMemo(() => {
+    if (!product) return [];
+    const items: Array<{ type: 'image' | 'video'; url: string }> = [];
+
+    // Add direct product images
+    if (Array.isArray(product.images) && product.images.length > 0) {
+      product.images.forEach((img) => {
+        if (img && typeof img === 'string' && img.trim()) {
+          const isVid = /\.(mp4|webm|mov|ogg)($|\?)/i.test(img) || img.startsWith('data:video/');
+          items.push({ type: isVid ? 'video' : 'image', url: img });
+        }
+      });
+    }
+
+    // Add product videos (ensure no duplicate URLs)
+    if (Array.isArray(product.videos) && product.videos.length > 0) {
+      product.videos.forEach((vid) => {
+        if (vid && typeof vid === 'string' && vid.trim() && !items.some((i) => i.url === vid)) {
+          items.push({ type: 'video', url: vid });
+        }
+      });
+    }
+
+    if (items.length === 0) {
+      items.push({
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1200&auto=format&fit=crop'
+      });
+    }
+
+    return items;
+  }, [product]);
+
+  const activeMedia = mediaItems[selectedMediaIndex] || mediaItems[0];
+
+  const handleSelectMedia = (idx: number) => {
+    setSelectedMediaIndex(idx);
+    setIsVideoPlaying(true);
+  };
+
+  const toggleVideoPlay = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play().catch(() => {});
+      setIsVideoPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsVideoPlaying(false);
+    }
+  };
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsVideoMuted((prev) => !prev);
+  };
 
   const handleAddToCart = async (shouldOpenDrawer: boolean = true) => {
     setAddingToCart(true);
@@ -169,8 +340,8 @@ export default function ProductDetailPage() {
         slug: product.slug,
         price: selectedVariant?.salePrice || selectedVariant?.price || product.salePrice || product.price,
         image: (product.images && product.images[0]) || '',
-        size: selectedVariant?.size,
-        color: selectedVariant?.color,
+        size: selectedVariant?.size || selectedSize,
+        color: selectedVariant?.color || selectedColor,
         quantity: quantity || 1
       };
       sessionStorage.setItem('zayna_buynow', JSON.stringify(buyNowItem));
@@ -211,19 +382,78 @@ export default function ProductDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
           {/* Left Column: Image Gallery */}
           <div className="space-y-4">
-            {/* Primary High-Res View */}
+            {/* Primary High-Res View / Instagram Reel Player */}
             <div className="relative aspect-[3/4] w-full rounded-xl overflow-hidden bg-brand-sand border border-brand-border shadow-luxury">
-              <Image
-                src={images[selectedImageIndex] || images[0]}
-                alt={product.name}
-                fill
-                priority
-                unoptimized
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover object-center"
-              />
+              {activeMedia?.type === 'video' ? (
+                <div
+                  className="relative w-full h-full bg-black cursor-pointer group select-none"
+                  onClick={toggleVideoPlay}
+                >
+                  <video
+                    ref={videoRef}
+                    src={activeMedia.url}
+                    autoPlay
+                    loop
+                    playsInline
+                    muted={isVideoMuted}
+                    onPlay={() => setIsVideoPlaying(true)}
+                    onPause={() => setIsVideoPlaying(false)}
+                    className="w-full h-full object-cover"
+                  />
+
+                  {/* Instagram Reel Badge */}
+                  <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-white text-[11px] font-semibold px-2.5 py-1 rounded-full shadow border border-white/10 pointer-events-none">
+                    <Film className="w-3.5 h-3.5 text-brand-gold" />
+                    <span>REEL / VIDEO</span>
+                  </div>
+
+                  {/* Audio Mute/Unmute Toggle (Instagram Style) */}
+                  <button
+                    type="button"
+                    onClick={toggleMute}
+                    aria-label={isVideoMuted ? 'Unmute audio' : 'Mute audio'}
+                    className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-black/60 backdrop-blur-md hover:bg-black/80 text-white flex items-center justify-center transition-all shadow border border-white/10 cursor-pointer"
+                  >
+                    {isVideoMuted ? (
+                      <VolumeX className="w-4 h-4 text-white" />
+                    ) : (
+                      <Volume2 className="w-4 h-4 text-white animate-pulse" />
+                    )}
+                  </button>
+
+                  {/* Play/Pause Center Indicator */}
+                  {!isVideoPlaying && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
+                      <div className="w-16 h-16 rounded-full bg-black/70 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-xl">
+                        <Play className="w-7 h-7 fill-white translate-x-0.5" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bottom Subtitle / Tap hint */}
+                  <div className="absolute bottom-3 inset-x-3 z-10 flex items-center justify-between pointer-events-none text-white/80 text-[10px] bg-gradient-to-t from-black/70 to-transparent pt-4 pb-1 px-2 rounded-b-lg">
+                    <span>{isVideoPlaying ? 'Tap to pause' : 'Tap to play'}</span>
+                    <span>{isVideoMuted ? 'Muted · Tap speaker for sound' : 'Sound active'}</span>
+                  </div>
+                </div>
+              ) : (
+                <Image
+                  src={activeMedia?.url || 'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1200&auto=format&fit=crop'}
+                  alt={product.name}
+                  fill
+                  priority
+                  unoptimized
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-cover object-center"
+                />
+              )}
+
               {(product.flags?.isOnSale || discountPercent > 0) && (
-                <div className="absolute top-4 left-4 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded shadow-md tracking-wider uppercase flex items-center gap-1.5">
+                <div
+                  className={`absolute ${
+                    activeMedia?.type === 'video' ? 'top-14 left-4' : 'top-4 left-4'
+                  } z-10 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded shadow-md tracking-wider uppercase flex items-center gap-1.5 pointer-events-none`}
+                >
                   <span>SALE</span>
                   {discountPercent > 0 && <span>-{discountPercent}%</span>}
                 </div>
@@ -231,17 +461,45 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Thumbnail Strip */}
-            {images.length > 1 && (
+            {mediaItems.length > 1 && (
               <div className="flex gap-3 overflow-x-auto pb-2">
-                {images.map((img, idx) => (
+                {mediaItems.map((item, idx) => (
                   <button
                     key={idx}
-                    onClick={() => setSelectedImageIndex(idx)}
+                    type="button"
+                    onClick={() => handleSelectMedia(idx)}
                     className={`relative w-20 h-24 rounded-lg overflow-hidden shrink-0 border-2 transition-all ${
-                      selectedImageIndex === idx ? 'border-brand-mocha shadow-md scale-105' : 'border-brand-border/60 opacity-70 hover:opacity-100'
+                      selectedMediaIndex === idx
+                        ? 'border-brand-mocha shadow-md scale-105'
+                        : 'border-brand-border/60 opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <Image src={img} alt={`Thumbnail ${idx + 1}`} fill unoptimized className="object-cover" />
+                    {item.type === 'video' ? (
+                      <div className="relative w-full h-full bg-brand-noir">
+                        <video
+                          src={item.url}
+                          muted
+                          playsInline
+                          className="w-full h-full object-cover pointer-events-none opacity-80"
+                        />
+                        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-1">
+                          <div className="w-6 h-6 rounded-full bg-black/70 flex items-center justify-center text-white">
+                            <Play className="w-3 h-3 fill-white translate-x-0.5" />
+                          </div>
+                          <span className="text-[9px] font-bold text-white tracking-wider uppercase bg-black/60 px-1 rounded">
+                            REEL
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <Image
+                        src={item.url}
+                        alt={`Thumbnail ${idx + 1}`}
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                    )}
                   </button>
                 ))}
               </div>
@@ -293,12 +551,59 @@ export default function ProductDetailPage() {
               {product.description}
             </p>
 
-            {/* Size Variant Picker & Size Guide */}
-            {product.variants && product.variants.length > 0 && (
+            {/* Color Radio Selector */}
+            {availableColors.length > 0 && (
               <div className="space-y-3 pt-4 border-t border-brand-border">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-serif font-semibold text-brand-noir tracking-wide uppercase">
-                    Select Length / Size: <span className="font-bold text-brand-mocha">{selectedVariant?.size}</span>
+                    Select Color: <span className="font-bold text-brand-mocha">{selectedColor}</span>
+                  </span>
+                  <span className="text-[11px] text-brand-noir/60">
+                    {availableColors.length} {availableColors.length === 1 ? 'Color' : 'Colors'} Available
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2.5" role="radiogroup" aria-label="Abaya Color Selection">
+                  {availableColors.map((colorName) => {
+                    const isSelected = selectedColor?.toLowerCase() === colorName.toLowerCase();
+                    const swatchHex = getColorHex(colorName);
+                    return (
+                      <label
+                        key={colorName}
+                        onClick={() => handleSelectColor(colorName)}
+                        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer border transition-all select-none ${
+                          isSelected
+                            ? 'border-brand-mocha bg-brand-sand/60 text-brand-noir ring-2 ring-brand-mocha/30 shadow-sm font-bold'
+                            : 'border-brand-border bg-white text-brand-noir hover:bg-brand-sand/40 hover:border-brand-border/80'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="product-color-choice"
+                          value={colorName}
+                          checked={isSelected}
+                          onChange={() => handleSelectColor(colorName)}
+                          className="w-3.5 h-3.5 text-brand-mocha focus:ring-brand-mocha accent-[#8E6E53] cursor-pointer"
+                        />
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-black/15 shadow-inner shrink-0"
+                          style={{ backgroundColor: swatchHex }}
+                          aria-hidden="true"
+                        />
+                        <span>{colorName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Size Variant Picker & Size Guide */}
+            {(availableSizes.length > 0 || (product.variants && product.variants.length > 0)) && (
+              <div className="space-y-3 pt-4 border-t border-brand-border">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-serif font-semibold text-brand-noir tracking-wide uppercase">
+                    Select Length / Size: <span className="font-bold text-brand-mocha">{selectedSize || selectedVariant?.size}</span>
                   </span>
                   <button
                     onClick={() => setSizeGuideOpen(true)}
@@ -310,19 +615,21 @@ export default function ProductDetailPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2.5">
-                  {product.variants.map((v) => {
-                    const isSelected = selectedVariant?._id === v._id || selectedVariant?.sku === v.sku;
+                  {(availableSizes.length > 0 ? availableSizes : product.variants.map((v) => v.size)).map((sz) => {
+                    if (!sz) return null;
+                    const isSelected = (selectedSize || selectedVariant?.size) === sz;
                     return (
                       <button
-                        key={v.sku}
-                        onClick={() => setSelectedVariant(v)}
-                        className={`min-w-[48px] h-10 px-3 rounded text-xs font-semibold uppercase transition-all ${
+                        key={sz}
+                        type="button"
+                        onClick={() => handleSelectSize(sz)}
+                        className={`min-w-[48px] h-10 px-3 rounded text-xs font-semibold uppercase transition-all cursor-pointer ${
                           isSelected
                             ? 'bg-brand-mocha text-white shadow-md'
                             : 'bg-white border border-brand-border text-brand-noir hover:bg-brand-sand'
                         }`}
                       >
-                        {v.size}
+                        {sz}
                       </button>
                     );
                   })}
@@ -339,10 +646,10 @@ export default function ProductDetailPage() {
                     ) : selectedVariant.stock > 0 ? (
                       <span className="text-amber-800 font-semibold flex items-center">
                         <span className="w-2 h-2 rounded-full bg-amber-600 mr-2" />
-                        Limited Stock — Only {selectedVariant.stock} remaining in size {selectedVariant.size}
+                        Limited Stock — Only {selectedVariant.stock} remaining in {selectedColor} / size {selectedVariant.size}
                       </span>
                     ) : (
-                      <span className="text-red-600 font-medium">Out of stock in this size</span>
+                      <span className="text-red-600 font-medium">Out of stock in {selectedColor} / size {selectedVariant.size || selectedSize}</span>
                     )}
                   </div>
                 )}

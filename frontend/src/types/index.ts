@@ -14,6 +14,7 @@ export interface IProduct {
   slug: string;
   description: string;
   images: string[];
+  videos?: string[];
   variants: IProductVariant[];
   sku: string;
   price: number; // base price in paise
