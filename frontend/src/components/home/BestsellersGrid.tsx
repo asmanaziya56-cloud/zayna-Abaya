@@ -8,45 +8,49 @@ interface BestsellersGridProps {
   products: IProduct[];
 }
 
-const defaultBestsellers: IProduct[] = [
+export const defaultBestsellers: IProduct[] = [
   {
-    _id: '6a9bdde913550629becd5c71',
-    name: 'Embroidery Black Abaya',
-    slug: 'embroidery-black-abaya-0990',
-    price: 479900,
-    salePrice: 419900,
-    images: ['https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1200&auto=format&fit=crop'],
+    _id: '6a9a73c1800bbe764b278b3b',
+    name: 'Zahara Embroidered Silk Abaya',
+    slug: 'zahara-embroidered-silk-abaya',
+    price: 649900,
+    salePrice: 549900,
+    images: ['https://images.unsplash.com/photo-1594938298603-c8148c4dae35?q=80&w=1000&auto=format&fit=crop'],
     stock: 25,
+    category: { name: 'Luxury Occasion', slug: 'luxury-occasion' } as any,
     flags: { isBestseller: true, isFeatured: true }
   } as any,
   {
-    _id: '6a9bdb3652b47be6b17f36ed',
-    name: 'Leaf Styled Abaya',
-    slug: 'leaf-styled-abaya-9828',
-    price: 399900,
-    salePrice: 367400,
-    images: ['https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=1200&auto=format&fit=crop'],
+    _id: '6a9a73c1800bbe764b278b40',
+    name: 'Layla Minimalist Linen Open-Front Abaya',
+    slug: 'layla-minimalist-linen-open-front-abaya',
+    price: 429900,
+    salePrice: 379900,
+    images: ['https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1000&auto=format&fit=crop'],
     stock: 22,
+    category: { name: 'Everyday Essentials', slug: 'everyday-essentials' } as any,
     flags: { isBestseller: true }
   } as any,
   {
-    _id: '6a9bdcd3400ebf19cb753fba',
-    name: 'Stunning Black Abaya',
-    slug: 'stunning-black-abaya-5309',
-    price: 399900,
-    salePrice: 350000,
-    images: ['https://images.unsplash.com/photo-1518049362265-d5b2a6467637?q=80&w=1200&auto=format&fit=crop'],
+    _id: '6a9a73c1800bbe764b278b45',
+    name: 'Amina Pleated Everyday Black Abaya',
+    slug: 'amina-pleated-everyday-black-abaya',
+    price: 349900,
+    salePrice: 299900,
+    images: ['https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1000&auto=format&fit=crop'],
     stock: 22,
-    flags: { isBestseller: true }
+    category: { name: 'Everyday Essentials', slug: 'everyday-essentials' } as any,
+    flags: { isBestseller: true, isFeatured: true }
   } as any,
   {
-    _id: '6a9bdd4f52b47be6b17f370d',
-    name: 'Slip Dress',
-    slug: 'slip-dress-9712',
-    price: 99900,
-    salePrice: 89900,
-    images: ['https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=1200&auto=format&fit=crop'],
+    _id: '6a9a73c2800bbe764b278b53',
+    name: 'Luxe Modal Silk Sheyla Hijab',
+    slug: 'luxe-modal-silk-sheyla-hijab',
+    price: 129900,
+    salePrice: 99900,
+    images: ['https://images.unsplash.com/photo-1609357605129-26f69add5d6e?q=80&w=1000&auto=format&fit=crop'],
     stock: 25,
+    category: { name: 'Silk Chiffon Hijabs', slug: 'silk-chiffon-hijabs' } as any,
     flags: { isBestseller: true }
   } as any
 ];

@@ -11,20 +11,20 @@ interface CategoryBannersProps {
 
 export const defaultCategories: ICategory[] = [
   {
-    _id: 'cat_everyday',
-    name: 'Everyday Essentials',
-    slug: 'everyday-essentials',
-    image: '/images/categories/everyday-essentials.jpg',
-    description: 'Lightweight Korean Nidha silhouettes for effortless daily elegance.',
-    sortOrder: 1,
-    active: true
-  },
-  {
     _id: 'cat_luxury',
     name: 'Luxury Occasion',
     slug: 'luxury-occasion',
     image: '/images/categories/luxury-occasion.jpg',
     description: 'Hand-embroidered zardozi and crystalline beadwork for celebratory evenings.',
+    sortOrder: 1,
+    active: true
+  },
+  {
+    _id: 'cat_everyday',
+    name: 'Everyday Essentials',
+    slug: 'everyday-essentials',
+    image: '/images/categories/everyday-essentials.jpg',
+    description: 'Lightweight Korean Nidha silhouettes for effortless daily elegance.',
     sortOrder: 2,
     active: true
   },
@@ -36,8 +36,32 @@ export const defaultCategories: ICategory[] = [
     description: 'Exclusive celebratory edits featuring champagne gold threadwork and organza accents.',
     sortOrder: 3,
     active: true
+  },
+  {
+    _id: 'cat_slip',
+    name: 'Slip Dress and More',
+    slug: 'silk-chiffon-hijabs',
+    image: '/images/categories/slip-dress.jpg',
+    description: 'Premium inner slip dresses and complementary essentials for flawless layering.',
+    sortOrder: 4,
+    active: true
   }
 ];
+
+const categoryImageMap: Record<string, string> = {
+  'everyday-essentials': '/images/categories/everyday-essentials.jpg',
+  'luxury-occasion': '/images/categories/luxury-occasion.jpg',
+  'eid-festive': '/images/categories/eid-festive.jpg',
+  'silk-chiffon-hijabs': '/images/categories/slip-dress.jpg',
+  'slip-dress': '/images/categories/slip-dress.jpg'
+};
+
+function resolveCategoryImage(cat: ICategory): string {
+  if (cat.image && !cat.image.startsWith('data:')) {
+    return cat.image;
+  }
+  return categoryImageMap[cat.slug] || '/images/categories/everyday-essentials.jpg';
+}
 
 export function CategoryBanners({ categories, sectionConfig }: CategoryBannersProps) {
   const items = categories && categories.length > 0 ? categories : defaultCategories;
@@ -58,45 +82,45 @@ export function CategoryBanners({ categories, sectionConfig }: CategoryBannersPr
           <div className="w-12 h-0.5 bg-brand-gold mx-auto mt-3" />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((cat, index) => (
-            <Link
-              key={cat._id}
-              href={`/shop?category=${cat.slug}`}
-              className={`group relative overflow-hidden rounded-lg aspect-[4/5] bg-brand-sand border border-brand-border/60 shadow-sm ${
-                index === 0 ? 'sm:col-span-2 lg:col-span-1' : ''
-              }`}
-            >
-              {cat.image && (
+        <div className={items.length >= 4 ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'}>
+          {items.map((cat, index) => {
+            const imgSrc = resolveCategoryImage(cat);
+            return (
+              <Link
+                key={cat._id}
+                href={`/shop?category=${cat.slug}`}
+                className="group relative overflow-hidden rounded-lg aspect-[4/5] bg-brand-sand border border-brand-border/60 shadow-sm"
+              >
                 <Image
-                  src={cat.image}
+                  src={imgSrc}
                   alt={cat.name}
                   fill
-                  priority={index < 2}
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  priority={index < 4}
+                  unoptimized
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   className="object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
-              )}
-              {/* Dark Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                {/* Dark Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
-              {/* Bottom Content */}
-              <div className="absolute inset-x-0 bottom-0 p-6 text-white space-y-2">
-                <h3 className="font-serif text-2xl font-light tracking-wide drop-shadow-md">
-                  {cat.name}
-                </h3>
-                {cat.description && (
-                  <p className="text-xs text-brand-cream/80 line-clamp-2 leading-relaxed">
-                    {cat.description}
-                  </p>
-                )}
-                <div className="pt-2 flex items-center text-xs font-semibold uppercase tracking-widest text-brand-gold group-hover:text-white transition-colors">
-                  <span>Explore Edit</span>
-                  <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+                {/* Bottom Content */}
+                <div className="absolute inset-x-0 bottom-0 p-6 text-white space-y-2">
+                  <h3 className="font-serif text-2xl font-light tracking-wide drop-shadow-md">
+                    {cat.name}
+                  </h3>
+                  {cat.description && (
+                    <p className="text-xs text-brand-cream/80 line-clamp-2 leading-relaxed">
+                      {cat.description}
+                    </p>
+                  )}
+                  <div className="pt-2 flex items-center text-xs font-semibold uppercase tracking-widest text-brand-gold group-hover:text-white transition-colors">
+                    <span>Explore Edit</span>
+                    <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>

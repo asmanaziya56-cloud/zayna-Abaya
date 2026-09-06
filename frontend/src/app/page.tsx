@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { HeroSlider } from '../components/home/HeroSlider';
 import { ValueProps } from '../components/home/ValueProps';
 import { CategoryBanners, defaultCategories } from '../components/home/CategoryBanners';
-import { BestsellersGrid } from '../components/home/BestsellersGrid';
+import { BestsellersGrid, defaultBestsellers } from '../components/home/BestsellersGrid';
 import { BrandStory } from '../components/home/BrandStory';
 import { InstagramFeed } from '../components/home/InstagramFeed';
 import { FAQSection } from '../components/home/FAQSection';
@@ -27,7 +27,7 @@ const defaultSections: IHomepageSection[] = [
 export default function HomePage() {
   const [content, setContent] = useState<HomepageContent | null>(null);
   const [categories, setCategories] = useState<ICategory[]>(defaultCategories);
-  const [bestsellers, setBestsellers] = useState<IProduct[]>([]);
+  const [bestsellers, setBestsellers] = useState<IProduct[]>(defaultBestsellers);
   const [settings, setSettings] = useState<ISiteSettings | null>(initialSettings as any);
   const [loading, setLoading] = useState(false);
 
