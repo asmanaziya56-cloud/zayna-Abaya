@@ -19,6 +19,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, buttonSettings }: ProductCardProps) {
+  if (!product || !product._id) return null;
   const { addItem } = useCart();
   const { isWishlisted: checkWishlisted, toggleWishlist } = useWishlist();
   const [adding, setAdding] = useState(false);
