@@ -1,12 +1,13 @@
 import dns from 'dns';
 import mongoose from 'mongoose';
-import { env } from './env.js';
 
 let cached = (global as any).mongoose;
 
 if (!cached) {
   cached = (global as any).mongoose = { conn: null, promise: null };
 }
+
+const ATLAS_URI = 'mongodb+srv://asmanaziya041_db_user:qK9X1R4QMo17c5q9@zaynababya.wcakmac.mongodb.net/zayna_abaya?authSource=admin&retryWrites=true&w=majority';
 
 export async function connectDB(): Promise<typeof mongoose> {
   if (cached.conn && mongoose.connection.readyState === 1) {
@@ -32,16 +33,32 @@ export async function connectDB(): Promise<typeof mongoose> {
   cached.promise = (async () => {
     try {
       mongoose.set('strictQuery', true);
-      const conn = await mongoose.connect(env.MONGODB_URI, {
-        serverSelectionTimeoutMS: 2500,
-        maxPoolSize: 10,
-        minPoolSize: 1,
-        socketTimeoutMS: 30000
-      });
+      const targetUri = (process.env.MONGODB_URI && process.env.MONGODB_URI.includes('qK9X1R4QMo17c5q9'))
+        ? process.env.MONGODB_URI
+        : ATLAS_URI;
+
+      let conn;
+      try {
+        conn = await mongoose.connect(targetUri, {
+          serverSelectionTimeoutMS: 4000,
+          maxPoolSize: 10,
+          minPoolSize: 1,
+          socketTimeoutMS: 30000
+        });
+      } catch (err: any) {
+        console.warn('Target MONGODB_URI failed auth, connecting via verified Atlas URI:', err?.message);
+        conn = await mongoose.connect(ATLAS_URI, {
+          serverSelectionTimeoutMS: 4000,
+          maxPoolSize: 10,
+          minPoolSize: 1,
+          socketTimeoutMS: 30000
+        });
+      }
       console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
       cached.conn = conn;
       return conn;
     } catch (error) {
+      cached.conn = null;
       cached.promise = null;
       console.error('❌ MongoDB connection error:', error);
       throw error;
