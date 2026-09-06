@@ -60,7 +60,7 @@ export function HeroSlider({ banners }: HeroSliderProps) {
                   src={rawUrl || 'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1800&auto=format&fit=crop'}
                   alt={slide.title}
                   fill
-                  priority={idx === 0}
+                  priority={idx === 0 && !rawUrl?.startsWith('data:')}
                   unoptimized
                   sizes="100vw"
                   className="object-cover object-center scale-105 transition-transform duration-[10000ms]"
