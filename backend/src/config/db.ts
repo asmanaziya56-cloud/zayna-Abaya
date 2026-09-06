@@ -33,33 +33,19 @@ export async function connectDB(): Promise<typeof mongoose> {
   cached.promise = (async () => {
     try {
       mongoose.set('strictQuery', true);
-      const targetUri = (process.env.MONGODB_URI && process.env.MONGODB_URI.includes('qK9X1R4QMo17c5q9'))
-        ? process.env.MONGODB_URI
-        : ATLAS_URI;
-
-      let conn;
-      try {
-        conn = await mongoose.connect(targetUri, {
-          serverSelectionTimeoutMS: 4000,
-          maxPoolSize: 10,
-          minPoolSize: 1,
-          socketTimeoutMS: 30000
-        });
-      } catch (err: any) {
-        console.warn('Target MONGODB_URI failed auth, connecting via verified Atlas URI:', err?.message);
-        conn = await mongoose.connect(ATLAS_URI, {
-          serverSelectionTimeoutMS: 4000,
-          maxPoolSize: 10,
-          minPoolSize: 1,
-          socketTimeoutMS: 30000
-        });
-      }
+      const conn = await mongoose.connect(ATLAS_URI, {
+        serverSelectionTimeoutMS: 5000,
+        maxPoolSize: 10,
+        minPoolSize: 1,
+        socketTimeoutMS: 30000
+      });
       console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
       cached.conn = conn;
       return conn;
     } catch (error) {
       cached.conn = null;
       cached.promise = null;
+      try { await mongoose.disconnect(); } catch {}
       console.error('❌ MongoDB connection error:', error);
       throw error;
     }
