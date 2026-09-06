@@ -76,7 +76,8 @@ function getColorHex(name?: string): string {
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const slug = params.slug as string;
+  const rawSlug = params?.slug;
+  const slug = Array.isArray(rawSlug) ? rawSlug[0] : (rawSlug as string) || '';
 
   const { addItem, closeDrawer } = useCart();
   const { isWishlisted: checkWishlisted, toggleWishlist } = useWishlist();
@@ -121,6 +122,40 @@ export default function ProductDetailPage() {
       }
     });
     return sizes;
+  }, [product]);
+
+  // Unified Media Items (Images + Instagram Reels / Videos) - MUST BE DEFINED TOP-LEVEL
+  const mediaItems: Array<{ type: 'image' | 'video'; url: string }> = React.useMemo(() => {
+    if (!product) return [];
+    const items: Array<{ type: 'image' | 'video'; url: string }> = [];
+
+    // Add direct product images
+    if (Array.isArray(product.images) && product.images.length > 0) {
+      product.images.forEach((img) => {
+        if (img && typeof img === 'string' && img.trim()) {
+          const isVid = /\.(mp4|webm|mov|ogg)($|\?)/i.test(img) || img.startsWith('data:video/');
+          items.push({ type: isVid ? 'video' : 'image', url: img });
+        }
+      });
+    }
+
+    // Add product videos (ensure no duplicate URLs)
+    if (Array.isArray(product.videos) && product.videos.length > 0) {
+      product.videos.forEach((vid) => {
+        if (vid && typeof vid === 'string' && vid.trim() && !items.some((i) => i.url === vid)) {
+          items.push({ type: 'video', url: vid });
+        }
+      });
+    }
+
+    if (items.length === 0) {
+      items.push({
+        type: 'image',
+        url: '/images/categories/luxury-occasion.jpg'
+      });
+    }
+
+    return items;
   }, [product]);
 
   const handleSelectColor = (colorName: string) => {
@@ -253,39 +288,6 @@ export default function ProductDetailPage() {
   const currentPrice = selectedVariant?.salePrice || selectedVariant?.price || product.salePrice || product.price;
   const originalPrice = selectedVariant?.price || product.price;
   const discountPercent = calculateDiscountPercent(originalPrice, currentPrice);
-  // Unified Media Items (Images + Instagram Reels / Videos)
-  const mediaItems: Array<{ type: 'image' | 'video'; url: string }> = React.useMemo(() => {
-    if (!product) return [];
-    const items: Array<{ type: 'image' | 'video'; url: string }> = [];
-
-    // Add direct product images
-    if (Array.isArray(product.images) && product.images.length > 0) {
-      product.images.forEach((img) => {
-        if (img && typeof img === 'string' && img.trim()) {
-          const isVid = /\.(mp4|webm|mov|ogg)($|\?)/i.test(img) || img.startsWith('data:video/');
-          items.push({ type: isVid ? 'video' : 'image', url: img });
-        }
-      });
-    }
-
-    // Add product videos (ensure no duplicate URLs)
-    if (Array.isArray(product.videos) && product.videos.length > 0) {
-      product.videos.forEach((vid) => {
-        if (vid && typeof vid === 'string' && vid.trim() && !items.some((i) => i.url === vid)) {
-          items.push({ type: 'video', url: vid });
-        }
-      });
-    }
-
-    if (items.length === 0) {
-      items.push({
-        type: 'image',
-        url: '/images/categories/luxury-occasion.jpg'
-      });
-    }
-
-    return items;
-  }, [product]);
 
   const activeMedia = mediaItems[selectedMediaIndex] || mediaItems[0];
 
@@ -367,9 +369,9 @@ export default function ProductDetailPage() {
           <span>/</span>
           <Link href="/shop" className="hover:text-brand-mocha">Catalog</Link>
           <span>/</span>
-          {product.category && (
+          {typeof product.category === 'object' && product.category?.name && (
             <>
-              <Link href={`/shop?category=${product.category.slug}`} className="hover:text-brand-mocha">
+              <Link href={`/shop?category=${product.category.slug || ''}`} className="hover:text-brand-mocha">
                 {product.category.name}
               </Link>
               <span>/</span>
@@ -441,7 +443,6 @@ export default function ProductDetailPage() {
                   src={activeMedia?.url || '/images/categories/luxury-occasion.jpg'}
                   alt={product.name}
                   fill
-                  priority
                   unoptimized
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   className="object-cover object-center"
