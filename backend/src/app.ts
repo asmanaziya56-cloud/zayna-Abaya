@@ -90,10 +90,46 @@ app.use(
 );
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Static file serving for uploaded product pictures and hero videos with cross-origin headers
+// High-performance static & database-backed file serving for uploaded product pictures and hero videos
+app.get('/uploads/:filename', async (req: Request, res: Response, next) => {
+  const rawFilename = req.params.filename;
+  const filename = Array.isArray(rawFilename) ? rawFilename[0] : (rawFilename as string);
+  if (!filename) return next();
+
+  // 1. If file exists on local filesystem, serve immediately with CDN caching
+  const diskPath = path.join(uploadsDir, filename);
+  if (fs.existsSync(diskPath)) {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.sendFile(diskPath);
+  }
+
+  // 2. Query MongoDB uploads collection for serverless persistence across Vercel lambdas
+  try {
+    const db = mongoose.connection.db;
+    if (db) {
+      const fileDoc = await db.collection('uploads').findOne({ filename });
+      if (fileDoc && fileDoc.data) {
+        res.setHeader('Content-Type', fileDoc.contentType || 'image/jpeg');
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        const buffer = fileDoc.data.buffer || fileDoc.data;
+        return res.send(buffer);
+      }
+    }
+  } catch (dbErr) {
+    console.error('Error fetching upload from MongoDB:', dbErr);
+  }
+
+  next();
+});
+
 app.use(
   '/uploads',
   (_req, res, next) => {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.setHeader('Access-Control-Allow-Origin', '*');
     next();
@@ -165,7 +201,7 @@ apiV1.use('/settings', settingsRoutes);
 apiV1.use('/audit', auditRoutes);
 
 // Direct Multiple Pictures & Videos Upload endpoint
-apiV1.post('/upload', (req: Request, res: Response) => {
+apiV1.post('/upload', async (req: Request, res: Response) => {
   try {
     const images = req.body.images || req.body.files;
     if (!Array.isArray(images) || images.length === 0) {
@@ -178,6 +214,8 @@ apiV1.post('/upload', (req: Request, res: Response) => {
     const baseUrl = `${protocol}://${host}`;
 
     const savedUrls: string[] = [];
+    const db = mongoose.connection.db;
+
     for (const dataUrl of images) {
       if (typeof dataUrl !== 'string') continue;
       if (dataUrl.startsWith('http://') || dataUrl.startsWith('https://')) {
@@ -186,7 +224,7 @@ apiV1.post('/upload', (req: Request, res: Response) => {
       }
       const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
       if (matches && matches.length === 3) {
-        const mime = matches[1]?.toLowerCase() || '';
+        const mime = matches[1]?.toLowerCase() || 'image/jpeg';
         const rawBase64 = matches[2];
         if (!rawBase64) continue;
 
@@ -201,11 +239,42 @@ apiV1.post('/upload', (req: Request, res: Response) => {
         try {
           const buffer = Buffer.from(rawBase64, 'base64');
           const filename = `zayna-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
-          const filepath = path.join(uploadsDir, filename);
-          fs.writeFileSync(filepath, buffer);
+
+          // 1. Save permanently to MongoDB for serverless cross-instance persistence
+          if (db) {
+            try {
+              await db.collection('uploads').updateOne(
+                { filename },
+                {
+                  $set: {
+                    filename,
+                    contentType: mime,
+                    data: buffer,
+                    size: buffer.length,
+                    createdAt: new Date()
+                  }
+                },
+                { upsert: true }
+              );
+            } catch (mongoErr) {
+              console.error('Failed to save upload to MongoDB:', mongoErr);
+            }
+          }
+
+          // 2. Also write to filesystem if writable
+          try {
+            if (!fs.existsSync(uploadsDir)) {
+              fs.mkdirSync(uploadsDir, { recursive: true });
+            }
+            const filepath = path.join(uploadsDir, filename);
+            fs.writeFileSync(filepath, buffer);
+          } catch {
+            // Serverless read-only filesystem
+          }
+
           savedUrls.push(`${baseUrl}/uploads/${filename}`);
-        } catch {
-          // If filesystem write fails on serverless container, return dataUrl directly
+        } catch (procErr) {
+          console.error('Buffer processing failed, falling back to dataUrl:', procErr);
           savedUrls.push(dataUrl);
         }
       } else {
