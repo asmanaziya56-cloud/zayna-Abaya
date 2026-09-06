@@ -257,13 +257,11 @@ export class UserService {
       isEmailVerified: true
     });
 
-    let resetLink: string | undefined;
     if (data.sendResetEmail) {
       const resetToken = crypto.randomBytes(32).toString('hex');
       newUser.passwordResetToken = resetToken;
       newUser.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
-      const mailRes = await emailService.sendPasswordResetEmail(newUser.email, resetToken);
-      resetLink = mailRes.resetLink;
+      await emailService.sendPasswordResetEmail(newUser.email, resetToken);
     }
 
     await newUser.save();
@@ -276,8 +274,7 @@ export class UserService {
         role: newUser.role,
         isActive: newUser.isActive,
         createdAt: newUser.createdAt
-      },
-      resetLink
+      }
     };
   }
 
@@ -304,7 +301,7 @@ export class UserService {
   }
 
   async toggleUserStatus(userId: string, isActive: boolean, requestingUserId?: string) {
-    const user = await User.findOne({ _id: new Types.ObjectId(userId), isDeleted: { $ne: true } });
+    const user = await User.findOne({ _id: new Types.ObjectId(userId), isDeleted: { $ne: true } }).select('+refreshTokens');
     if (!user) {
       throw new AppError({ message: 'User not found', statusCode: 404, code: 'NOT_FOUND' });
     }
@@ -357,14 +354,11 @@ export class UserService {
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.passwordResetToken = resetToken;
     user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-    await user.save();
-
-    const mailRes = await emailService.sendPasswordResetEmail(user.email, resetToken);
+    await emailService.sendPasswordResetEmail(user.email, resetToken);
 
     return {
       success: true,
-      message: `Password reset email dispatched to ${user.email}`,
-      resetLink: mailRes.resetLink
+      message: `Password reset email dispatched to ${user.email}`
     };
   }
 
@@ -376,6 +370,10 @@ export class UserService {
 
     if (!newPassword || newPassword.length < 6) {
       throw new AppError({ message: 'New password must be at least 6 characters long', statusCode: 400, code: 'INVALID_INPUT' });
+    }
+
+    if (newPassword.length > 128) {
+      throw new AppError({ message: 'New password cannot exceed 128 characters', statusCode: 400, code: 'INVALID_INPUT' });
     }
 
     const salt = await bcrypt.genSalt(12);

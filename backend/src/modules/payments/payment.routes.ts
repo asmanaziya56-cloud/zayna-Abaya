@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { paymentController } from './payment.controller.js';
 import { optionalAuth } from '../../middleware/optionalAuth.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
@@ -12,9 +13,24 @@ import {
 
 const router = Router();
 
+const paymentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.NODE_ENV === 'test' ? 1000 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Too many payment requests. Please wait a moment and try again.'
+    }
+  }
+});
+
 // Create Razorpay order (guests or logged-in users)
 router.post(
   '/razorpay/order',
+  paymentLimiter,
   optionalAuth,
   validate({ body: createRazorpayOrderSchema }),
   paymentController.createRazorpayOrder
@@ -23,6 +39,7 @@ router.post(
 // Client signature verification
 router.post(
   '/razorpay/verify',
+  paymentLimiter,
   validate({ body: verifyPaymentSchema }),
   paymentController.verifyPayment
 );

@@ -79,22 +79,31 @@ app.use(
   })
 );
 
-// 4. Body parsing with rawBody retention for webhook verification (50mb for image/video uploads)
+// 4. Body parsing with rawBody retention for webhook verification (safe 2mb default limit for general APIs)
 app.use(
   express.json({
-    limit: '50mb',
+    limit: '2mb',
     verify: (req: Request, _res: Response, buf: Buffer) => {
       (req as any).rawBody = buf;
     }
   })
 );
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // High-performance static & database-backed file serving for uploaded product pictures and hero videos
-app.get('/uploads/:filename', async (req: Request, res: Response, next) => {
+app.get(['/uploads/:filename', '/api/uploads/:filename', '/api/v1/uploads/:filename'], async (req: Request, res: Response, next) => {
   const rawFilename = req.params.filename;
   const filename = Array.isArray(rawFilename) ? rawFilename[0] : (rawFilename as string);
   if (!filename) return next();
+
+  // Strict path traversal defense
+  if (!/^[a-zA-Z0-9._-]+$/.test(filename) || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+    res.status(400).json({ error: 'Invalid filename' });
+    return;
+  }
+
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Disposition', 'inline');
 
   // 1. If file exists on local filesystem, serve immediately with CDN caching
   const diskPath = path.join(uploadsDir, filename);
@@ -111,7 +120,11 @@ app.get('/uploads/:filename', async (req: Request, res: Response, next) => {
     if (db) {
       const fileDoc = await db.collection('uploads').findOne({ filename });
       if (fileDoc && fileDoc.data) {
-        res.setHeader('Content-Type', fileDoc.contentType || 'image/jpeg');
+        // Enforce safe content type from whitelist only
+        const safeContentType = fileDoc.contentType && !fileDoc.contentType.includes('html') && !fileDoc.contentType.includes('svg')
+          ? fileDoc.contentType
+          : 'image/jpeg';
+        res.setHeader('Content-Type', safeContentType);
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -132,6 +145,7 @@ app.use(
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     next();
   },
   express.static(uploadsDir)
@@ -200,14 +214,54 @@ apiV1.use('/content', contentRoutes);
 apiV1.use('/settings', settingsRoutes);
 apiV1.use('/audit', auditRoutes);
 
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'RATE_LIMIT_EXCEEDED',
+      message: 'Upload rate limit exceeded. Please wait a few minutes before trying again.'
+    }
+  }
+});
+
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime'
+]);
+
+function isValidMediaSignature(buffer: Buffer, mime: string): boolean {
+  if (buffer.length < 4) return false;
+  if (mime === 'image/jpeg') return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (mime === 'image/png') return buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+  if (mime === 'image/gif') return buffer.subarray(0, 4).toString('ascii') === 'GIF8';
+  if (mime === 'image/webp') return buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.length >= 12 && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+  if (mime === 'video/mp4' || mime === 'video/quicktime') return buffer.length >= 8 && buffer.subarray(4, 8).toString('ascii') === 'ftyp';
+  if (mime === 'video/webm') return buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3;
+  return false;
+}
+
+const uploadJsonParser = express.json({ limit: '50mb' });
+
 // Direct Multiple Pictures & Videos Upload endpoint
-apiV1.post('/upload', async (req: Request, res: Response) => {
+apiV1.post('/upload', uploadLimiter, uploadJsonParser, async (req: Request, res: Response) => {
   try {
-    const images = req.body.images || req.body.files;
-    if (!Array.isArray(images) || images.length === 0) {
+    const rawImages = req.body.images || req.body.files;
+    if (!Array.isArray(rawImages) || rawImages.length === 0) {
       res.status(400).json({ success: false, error: { message: 'No media files provided' } });
       return;
     }
+
+    // Cap maximum uploaded files per single request to 10
+    const images = rawImages.slice(0, 10);
 
     const host = req.get('host') || 'localhost:5000';
     const protocol = (req.headers['x-forwarded-proto'] as string) || (req.secure ? 'https' : 'http');
@@ -222,11 +276,16 @@ apiV1.post('/upload', async (req: Request, res: Response) => {
         savedUrls.push(dataUrl);
         continue;
       }
-      const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      const matches = dataUrl.match(/^data:([A-Za-z0-9-+\/]+);base64,(.+)$/);
       if (matches && matches.length === 3) {
         const mime = matches[1]?.toLowerCase() || 'image/jpeg';
         const rawBase64 = matches[2];
         if (!rawBase64) continue;
+
+        // Strict whitelist check
+        if (!ALLOWED_MIME_TYPES.has(mime)) {
+          continue;
+        }
 
         let ext = 'jpg';
         if (mime.includes('mp4')) ext = 'mp4';
@@ -238,6 +297,16 @@ apiV1.post('/upload', async (req: Request, res: Response) => {
 
         try {
           const buffer = Buffer.from(rawBase64, 'base64');
+          // Enforce 15MB limit per file
+          if (buffer.length > 15 * 1024 * 1024) {
+            continue;
+          }
+
+          // Validate magic byte signature to ensure true image/video content
+          if (!isValidMediaSignature(buffer, mime)) {
+            continue;
+          }
+
           const filename = `zayna-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
 
           // 1. Save permanently to MongoDB for serverless cross-instance persistence
@@ -274,11 +343,8 @@ apiV1.post('/upload', async (req: Request, res: Response) => {
 
           savedUrls.push(`${baseUrl}/uploads/${filename}`);
         } catch (procErr) {
-          console.error('Buffer processing failed, falling back to dataUrl:', procErr);
-          savedUrls.push(dataUrl);
+          console.error('Buffer processing failed:', procErr);
         }
-      } else {
-        savedUrls.push(dataUrl);
       }
     }
 

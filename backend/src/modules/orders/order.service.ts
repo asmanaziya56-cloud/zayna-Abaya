@@ -255,17 +255,29 @@ export class OrderService {
   }
 
   async trackOrder(orderNumber: string, email?: string) {
-    const query: Record<string, any> = { orderNumber };
-    if (email) {
-      query.$or = [{ guestEmail: email.toLowerCase() }];
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      throw new AppError({
+        message: 'Order tracking requires the email address associated with the order',
+        statusCode: 400,
+        code: 'INVALID_REQUEST'
+      });
     }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const query: Record<string, any> = {
+      orderNumber: orderNumber.trim(),
+      $or: [
+        { guestEmail: cleanEmail },
+        { 'shippingAddress.email': cleanEmail }
+      ]
+    };
 
     const order = await Order.findOne(query).select(
       'orderNumber items pricing paymentStatus fulfillmentStatus tracking createdAt'
     );
 
     if (!order) {
-      throw new AppError({ message: 'Order not found', statusCode: 404, code: 'NOT_FOUND' });
+      throw new AppError({ message: 'Order not found for the provided details', statusCode: 404, code: 'NOT_FOUND' });
     }
 
     return order;

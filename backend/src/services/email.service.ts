@@ -2,6 +2,15 @@ import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 
+function escapeHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
 
@@ -64,7 +73,9 @@ class EmailService {
   }
 
   async sendVerificationEmail(email: string, token: string): Promise<boolean> {
-    const link = `${env.CLIENT_URL}/auth/verify-email?token=${token}`;
+    const safeToken = encodeURIComponent(token);
+    const link = `${env.CLIENT_URL}/auth/verify-email?token=${safeToken}`;
+    const safeLink = escapeHtml(link);
     const html = `
       <div style="font-family: 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; background-color: #FAF7F2; border: 1px solid #E5E0D8; border-radius: 8px;">
         <div style="text-align: center; margin-bottom: 24px;">
@@ -75,9 +86,9 @@ class EmailService {
           <h2 style="font-size: 18px; color: #1A2F5A; margin-top: 0;">Welcome to Zayna Abaya</h2>
           <p style="font-size: 14px; line-height: 1.6; color: #4A4A4A;">Thank you for creating an account with our boutique atelier. Please verify your email address to confirm your membership:</p>
           <div style="text-align: center; margin: 28px 0;">
-            <a href="${link}" style="background-color: #1A2F5A; color: #FFFFFF; padding: 12px 28px; font-size: 13px; font-weight: bold; letter-spacing: 1px; text-decoration: none; border-radius: 4px; display: inline-block;">VERIFY EMAIL ADDRESS</a>
+            <a href="${safeLink}" style="background-color: #1A2F5A; color: #FFFFFF; padding: 12px 28px; font-size: 13px; font-weight: bold; letter-spacing: 1px; text-decoration: none; border-radius: 4px; display: inline-block;">VERIFY EMAIL ADDRESS</a>
           </div>
-          <p style="font-size: 12px; color: #7f8c8d; line-height: 1.5;">Or copy and paste this link into your browser:<br><a href="${link}" style="color: #8E6E53;">${link}</a></p>
+          <p style="font-size: 12px; color: #7f8c8d; line-height: 1.5;">Or copy and paste this link into your browser:<br><a href="${safeLink}" style="color: #8E6E53;">${safeLink}</a></p>
           <p style="font-size: 11px; color: #999999; margin-top: 24px; border-top: 1px solid #EEEEEE; padding-top: 12px;">This link will expire in 24 hours. If you did not create an account, please disregard this email.</p>
         </div>
       </div>
@@ -86,7 +97,9 @@ class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, token: string): Promise<{ sent: boolean; resetLink: string }> {
-    const link = `${env.CLIENT_URL}/auth/reset-password?token=${token}`;
+    const safeToken = encodeURIComponent(token);
+    const link = `${env.CLIENT_URL}/auth/reset-password?token=${safeToken}`;
+    const safeLink = escapeHtml(link);
     const html = `
       <div style="font-family: 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; background-color: #FAF7F2; border: 1px solid #E5E0D8; border-radius: 8px;">
         <div style="text-align: center; margin-bottom: 24px;">
@@ -98,9 +111,9 @@ class EmailService {
           <p style="font-size: 14px; line-height: 1.6; color: #4A4A4A;">We received a request to reset your password for your Zayna Abaya client account.</p>
           <p style="font-size: 14px; line-height: 1.6; color: #4A4A4A;">Click the button below to choose a new password:</p>
           <div style="text-align: center; margin: 28px 0;">
-            <a href="${link}" style="background-color: #1A2F5A; color: #FFFFFF; padding: 12px 28px; font-size: 13px; font-weight: bold; letter-spacing: 1px; text-decoration: none; border-radius: 4px; display: inline-block;">RESET MY PASSWORD</a>
+            <a href="${safeLink}" style="background-color: #1A2F5A; color: #FFFFFF; padding: 12px 28px; font-size: 13px; font-weight: bold; letter-spacing: 1px; text-decoration: none; border-radius: 4px; display: inline-block;">RESET MY PASSWORD</a>
           </div>
-          <p style="font-size: 12px; color: #7f8c8d; line-height: 1.5;">Or copy and paste this link into your browser:<br><a href="${link}" style="color: #8E6E53;">${link}</a></p>
+          <p style="font-size: 12px; color: #7f8c8d; line-height: 1.5;">Or copy and paste this link into your browser:<br><a href="${safeLink}" style="color: #8E6E53;">${safeLink}</a></p>
           <p style="font-size: 11px; color: #999999; margin-top: 24px; border-top: 1px solid #EEEEEE; padding-top: 12px;">This password reset link will expire in 1 hour for your security. If you did not request a password reset, please ignore this email or reach out to our concierge support team.</p>
         </div>
       </div>
@@ -127,10 +140,11 @@ class EmailService {
   }
 
   async sendOrderConfirmationEmail(email: string, orderNumber: string, totalAmount: number): Promise<boolean> {
+    const safeOrder = escapeHtml(orderNumber);
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <h2 style="color: #2c3e50;">Order Confirmed!</h2>
-        <p>Thank you for choosing Zayna Abaya. Your order <strong>${orderNumber}</strong> has been received.</p>
+        <p>Thank you for choosing Zayna Abaya. Your order <strong>${safeOrder}</strong> has been received.</p>
         <p>Total amount: <strong>₹${(totalAmount / 100).toFixed(2)}</strong></p>
         <p>You can track the progress of your delivery on our website.</p>
       </div>

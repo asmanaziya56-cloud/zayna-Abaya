@@ -64,7 +64,7 @@ export function errorHandler(
   if (err.name === 'CastError') {
     statusCode = 400;
     code = 'INVALID_REQUEST';
-    message = `Invalid ${err.path}: ${err.value}`;
+    message = `Invalid identifier format for field '${err.path}'`;
   }
 
   // Handle JWT errors
@@ -86,6 +86,12 @@ export function errorHandler(
       error: err.message,
       stack: err.stack
     });
+
+    // In production, mask internal server error details to prevent reconnaissance
+    if (env.NODE_ENV === 'production') {
+      message = 'An unexpected server error occurred. Please contact customer support.';
+      fields = undefined;
+    }
   } else if (env.NODE_ENV === 'development') {
     logger.warn('Client request rejected', {
       method: req.method,

@@ -33,6 +33,10 @@ export default async function handler(req: any, res: any) {
   } catch (err: any) {
     appPromise = null;
     console.error('Serverless connection error:', err);
-    return res.status(500).json({ error: 'Serverless execution failed', details: err?.message || String(err) });
+    const isProd = process.env.NODE_ENV === 'production';
+    return res.status(500).json({
+      error: 'Serverless execution failed',
+      ...(isProd ? {} : { details: err?.message || String(err) })
+    });
   }
 }

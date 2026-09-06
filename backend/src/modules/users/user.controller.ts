@@ -110,7 +110,6 @@ export class UserController {
       res.status(201).json({
         success: true,
         data: result.user,
-        resetLink: result.resetLink,
         message: 'Staff member created successfully'
       });
     } catch (err) {

@@ -2,11 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import { cartService } from './cart.service.js';
 
 function extractSessionId(req: Request): string | undefined {
-  return (
+  const raw =
     (req.headers['x-session-id'] as string) ||
     (req.query.sessionId as string) ||
-    req.body?.sessionId
-  );
+    req.body?.sessionId;
+
+  if (typeof raw === 'string' && /^[a-zA-Z0-9_-]{8,64}$/.test(raw.trim())) {
+    return raw.trim();
+  }
+  return undefined;
 }
 
 function formatCart(cart: any) {

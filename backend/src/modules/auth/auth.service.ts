@@ -85,7 +85,7 @@ export class AuthService {
   async login(credentials: { email: string; password: string }, clientInfo?: { device?: string; ip?: string }) {
     const email = credentials.email?.toLowerCase().trim();
     const user = await User.findOne({ email, isDeleted: { $ne: true } }).select(
-      '+password +verificationToken'
+      '+password +verificationToken +refreshTokens'
     );
 
     if (!user) {
@@ -200,7 +200,7 @@ export class AuthService {
       });
     }
 
-    const user = await User.findById(payload._id);
+    const user = await User.findById(payload._id).select('+refreshTokens');
     if (!user || user.isDeleted) {
       throw new AppError({
         message: 'User account no longer active',
@@ -271,7 +271,7 @@ export class AuthService {
   }
 
   async logout(userId: string, refreshToken?: string) {
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select('+refreshTokens');
     if (!user) return;
 
     if (refreshToken) {
@@ -301,11 +301,10 @@ export class AuthService {
     user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save();
 
-    const mailResult = await emailService.sendPasswordResetEmail(user.email, resetToken);
+    await emailService.sendPasswordResetEmail(user.email, resetToken);
 
     return {
-      message: 'If that email address exists in our system, a password reset link has been sent.',
-      resetLink: mailResult.resetLink
+      message: 'If that email address exists in our system, a password reset link has been sent.'
     };
   }
 
@@ -342,12 +341,12 @@ export class AuthService {
   }
 
   async listSessions(userId: string) {
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select('+refreshTokens');
     if (!user) {
       throw new AppError({ message: 'User not found', statusCode: 404, code: 'NOT_FOUND' });
     }
 
-    return user.refreshTokens.map((s, idx) => ({
+    return (user.refreshTokens || []).map((s, idx) => ({
       id: idx.toString(),
       createdAt: s.createdAt,
       expiresAt: s.expiresAt,
@@ -357,7 +356,7 @@ export class AuthService {
   }
 
   async revokeSession(userId: string, sessionIndex: number) {
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select('+refreshTokens');
     if (!user) {
       throw new AppError({ message: 'User not found', statusCode: 404, code: 'NOT_FOUND' });
     }

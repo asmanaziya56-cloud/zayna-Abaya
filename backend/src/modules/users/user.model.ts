@@ -93,7 +93,7 @@ const UserSchema = new Schema<IUser>(
     passwordResetExpires: { type: Date, select: false },
     failedLoginAttempts: { type: Number, default: 0 },
     lockUntil: { type: Date },
-    refreshTokens: { type: [RefreshTokenSessionSchema], default: [] },
+    refreshTokens: { type: [RefreshTokenSessionSchema], default: [], select: false },
     addresses: { type: [AddressSchema], default: [] },
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date }

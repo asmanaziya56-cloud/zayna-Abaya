@@ -7,7 +7,15 @@ if (!cached) {
   cached = (global as any).mongoose = { conn: null, promise: null };
 }
 
-const ATLAS_URI = 'mongodb+srv://asmanaziya041_db_user:qK9X1R4QMo17c5q9@zaynababya.wcakmac.mongodb.net/zayna_abaya?authSource=admin&retryWrites=true&w=majority';
+function getMongoUri(): string {
+  if (process.env.MONGODB_URI) {
+    return process.env.MONGODB_URI;
+  }
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+    return 'mongodb://127.0.0.1:27017/zayna_abaya';
+  }
+  throw new Error('MONGODB_URI environment variable is required in production environment.');
+}
 
 export async function connectDB(): Promise<typeof mongoose> {
   if (cached.conn && mongoose.connection.readyState === 1) {
@@ -33,7 +41,8 @@ export async function connectDB(): Promise<typeof mongoose> {
   cached.promise = (async () => {
     try {
       mongoose.set('strictQuery', true);
-      const conn = await mongoose.connect(ATLAS_URI, {
+      const uri = getMongoUri();
+      const conn = await mongoose.connect(uri, {
         serverSelectionTimeoutMS: 5000,
         maxPoolSize: 10,
         minPoolSize: 1,

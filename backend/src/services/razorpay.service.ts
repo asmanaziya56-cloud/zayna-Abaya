@@ -53,12 +53,17 @@ class RazorpayService {
     paymentId: string;
     signature: string;
   }): boolean {
-    const secret = env.RAZORPAY_KEY_SECRET || 'dev_secret';
-    // If mock mode and signature begins with mock_
-    if (!this.instance && params.signature.startsWith('mock_sig_')) {
+    if (env.NODE_ENV === 'production' && (!this.instance || !env.RAZORPAY_KEY_SECRET)) {
+      logger.error('Payment signature verification attempted in production without configured Razorpay credentials');
+      return false;
+    }
+
+    // In local development or test mode only, allow mock testing signatures
+    if (env.NODE_ENV !== 'production' && !this.instance && params.signature.startsWith('mock_sig_')) {
       return true;
     }
 
+    const secret = env.RAZORPAY_KEY_SECRET || 'dev_secret';
     const payload = `${params.orderId}|${params.paymentId}`;
     const expectedSignature = crypto
       .createHmac('sha256', secret)
@@ -69,11 +74,17 @@ class RazorpayService {
   }
 
   verifyWebhookSignature(rawBody: string | Buffer, signature: string): boolean {
-    const secret = env.RAZORPAY_WEBHOOK_SECRET || 'dev_webhook_secret';
-    if (!this.instance && signature.startsWith('mock_wh_sig_')) {
+    if (env.NODE_ENV === 'production' && (!this.instance || !env.RAZORPAY_WEBHOOK_SECRET)) {
+      logger.error('Webhook signature verification attempted in production without configured webhook secret');
+      return false;
+    }
+
+    // In local development or test mode only, allow mock testing signatures
+    if (env.NODE_ENV !== 'production' && !this.instance && signature.startsWith('mock_wh_sig_')) {
       return true;
     }
 
+    const secret = env.RAZORPAY_WEBHOOK_SECRET || 'dev_webhook_secret';
     const expectedSignature = crypto
       .createHmac('sha256', secret)
       .update(rawBody)

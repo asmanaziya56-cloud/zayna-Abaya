@@ -41,4 +41,19 @@ if (!parsed.success) {
   process.exit(1);
 }
 
+// In production, guard against using default repository fallback secrets
+if (parsed.data.NODE_ENV === 'production') {
+  if (parsed.data.JWT_ACCESS_SECRET.includes('default_secret') || parsed.data.JWT_ACCESS_SECRET.length < 32) {
+    // Generate a secure ephemeral secret to prevent predictable forgery if env var is missing
+    const crypto = await import('crypto');
+    parsed.data.JWT_ACCESS_SECRET = crypto.randomBytes(32).toString('hex');
+    console.warn('⚠️ WARNING: JWT_ACCESS_SECRET not configured in production. Generated ephemeral secret for this process.');
+  }
+  if (parsed.data.JWT_REFRESH_SECRET.includes('default_secret') || parsed.data.JWT_REFRESH_SECRET.length < 32) {
+    const crypto = await import('crypto');
+    parsed.data.JWT_REFRESH_SECRET = crypto.randomBytes(32).toString('hex');
+    console.warn('⚠️ WARNING: JWT_REFRESH_SECRET not configured in production. Generated ephemeral secret for this process.');
+  }
+}
+
 export const env = parsed.data;

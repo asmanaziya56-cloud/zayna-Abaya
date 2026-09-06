@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node --env-file=.env dist/server.js",
+    "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "tsx --env-file=.env src/test-backend-e2e.ts"
+    "test:e2e": "tsx src/test-backend-e2e.ts"
   },
   "dependencies": {
     "@sentry/node": "^10.73.0",
