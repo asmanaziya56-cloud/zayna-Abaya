@@ -10,48 +10,60 @@ interface BestsellersGridProps {
 
 export const defaultBestsellers: IProduct[] = [
   {
-    _id: '6a9a73c1800bbe764b278b3b',
-    name: 'Zahara Embroidered Silk Abaya',
-    slug: 'zahara-embroidered-silk-abaya',
-    price: 649900,
-    salePrice: 549900,
-    images: ['https://images.unsplash.com/photo-1594938298603-c8148c4dae35?q=80&w=1000&auto=format&fit=crop'],
+    _id: 'prod_leaf_styled',
+    name: 'Leaf Styled Abaya',
+    slug: 'leaf-styled-abaya-2621',
+    price: 399900,
+    salePrice: 367400,
+    images: [
+      '/images/products/leaf-styled-abaya-2621-0.jpg',
+      '/images/products/leaf-styled-abaya-2621-1.jpg'
+    ],
+    stock: 22,
+    category: { name: 'Eid & Festive', slug: 'eid-festive' } as any,
+    flags: { isBestseller: true, isFeatured: true }
+  } as any,
+  {
+    _id: 'prod_stunning_black',
+    name: 'Stunning Black Abaya',
+    slug: 'stunning-black-abaya-5309',
+    price: 399900,
+    salePrice: 350000,
+    images: [
+      '/images/products/stunning-black-abaya-5309-0.jpg',
+      '/images/products/stunning-black-abaya-5309-1.jpg'
+    ],
+    stock: 22,
+    category: { name: 'Luxury Occasion', slug: 'luxury-occasion' } as any,
+    flags: { isBestseller: true, isFeatured: true }
+  } as any,
+  {
+    _id: 'prod_little_romance',
+    name: 'A little romance',
+    slug: 'a-little-romance-3685',
+    price: 400000,
+    salePrice: 360000,
+    images: [
+      '/images/products/a-little-romance-3685-0.jpg',
+      '/images/products/a-little-romance-3685-1.jpg'
+    ],
     stock: 25,
     category: { name: 'Luxury Occasion', slug: 'luxury-occasion' } as any,
     flags: { isBestseller: true, isFeatured: true }
   } as any,
   {
-    _id: '6a9a73c1800bbe764b278b40',
-    name: 'Layla Minimalist Linen Open-Front Abaya',
-    slug: 'layla-minimalist-linen-open-front-abaya',
-    price: 429900,
-    salePrice: 379900,
-    images: ['https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1000&auto=format&fit=crop'],
-    stock: 22,
-    category: { name: 'Everyday Essentials', slug: 'everyday-essentials' } as any,
-    flags: { isBestseller: true }
-  } as any,
-  {
-    _id: '6a9a73c1800bbe764b278b45',
-    name: 'Amina Pleated Everyday Black Abaya',
-    slug: 'amina-pleated-everyday-black-abaya',
-    price: 349900,
-    salePrice: 299900,
-    images: ['https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1000&auto=format&fit=crop'],
-    stock: 22,
+    _id: 'prod_navy_blue',
+    name: 'Effortlessly elegant in Navy Blue. 💙✨',
+    slug: 'effortlessly-elegant-in-navy-blue-5325',
+    price: 350000,
+    salePrice: 315000,
+    images: [
+      '/images/products/effortlessly-elegant-in-navy-blue-5325-0.jpg',
+      '/images/products/effortlessly-elegant-in-navy-blue-5325-1.jpg'
+    ],
+    stock: 25,
     category: { name: 'Everyday Essentials', slug: 'everyday-essentials' } as any,
     flags: { isBestseller: true, isFeatured: true }
-  } as any,
-  {
-    _id: '6a9a73c2800bbe764b278b53',
-    name: 'Luxe Modal Silk Sheyla Hijab',
-    slug: 'luxe-modal-silk-sheyla-hijab',
-    price: 129900,
-    salePrice: 99900,
-    images: ['https://images.unsplash.com/photo-1609357605129-26f69add5d6e?q=80&w=1000&auto=format&fit=crop'],
-    stock: 25,
-    category: { name: 'Silk Chiffon Hijabs', slug: 'silk-chiffon-hijabs' } as any,
-    flags: { isBestseller: true }
   } as any
 ];
 

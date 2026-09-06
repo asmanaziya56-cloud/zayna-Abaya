@@ -54,7 +54,7 @@ export function ProductCard({ product, buttonSettings }: ProductCardProps) {
 
   const discountPercent = calculateDiscountPercent(product.price, product.salePrice);
   const currentPrice = product.salePrice || product.price;
-  const mainImage = product.images?.[0] || 'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=800&auto=format&fit=crop';
+  const mainImage = product.images?.[0] || '/images/categories/luxury-occasion.jpg';
   const hoverImage = product.images?.[1] || mainImage;
 
   const handleToggleWishlist = (e: React.MouseEvent) => {

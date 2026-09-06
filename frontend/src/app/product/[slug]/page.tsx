@@ -280,7 +280,7 @@ export default function ProductDetailPage() {
     if (items.length === 0) {
       items.push({
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1200&auto=format&fit=crop'
+        url: '/images/categories/luxury-occasion.jpg'
       });
     }
 
@@ -438,7 +438,7 @@ export default function ProductDetailPage() {
                 </div>
               ) : (
                 <Image
-                  src={activeMedia?.url || 'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?q=80&w=1200&auto=format&fit=crop'}
+                  src={activeMedia?.url || '/images/categories/luxury-occasion.jpg'}
                   alt={product.name}
                   fill
                   priority
